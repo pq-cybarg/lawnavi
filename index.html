@@ -77,9 +77,9 @@
     stroke:var(--ink-faint);fill:none;}
   .search .count{position:absolute;right:9px;top:50%;transform:translateY(-50%);
     font-family:"Space Mono",monospace;font-size:10px;color:var(--gold);pointer-events:none;}
-  #searchResults{position:absolute;top:calc(100% + 6px);left:0;width:360px;max-width:calc(100vw - 36px);
+  #searchResults{position:absolute;top:calc(100% + 6px);right:0;left:auto;width:360px;max-width:calc(100vw - 36px);
     max-height:62vh;overflow-y:auto;background:var(--panel-2);border:1px solid var(--line-bright);
-    border-radius:10px;box-shadow:0 16px 44px rgba(0,0,0,.55);z-index:60;display:none;padding:5px;}
+    border-radius:10px;box-shadow:0 16px 44px rgba(0,0,0,.6);z-index:80;display:none;padding:5px;}
   #searchResults.open{display:block;}
   #searchResults .sr-item{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;
     border:none;color:var(--ink);padding:7px 9px;border-radius:7px;cursor:pointer;font-family:inherit;}
@@ -111,7 +111,7 @@
   .node:hover{border-color:var(--line-bright);box-shadow:0 10px 30px rgba(0,0,0,0.5);transform:translateY(-1px);}
   .node.selected{border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,162,39,0.5),0 12px 34px rgba(0,0,0,0.55);}
   .node.match{border-color:var(--gold-soft);box-shadow:0 0 0 2px rgba(224,194,91,0.45);}
-  .node.dim{opacity:.22;}
+  .node.dim{opacity:.13;pointer-events:none;}  /* dimmed bubbles can't intercept clicks while searching */
   /* stacking: focused/selected bubble rises above overlapping neighbours, drops back when unfocused */
   .node{z-index:1;}
   .node:hover{z-index:40;}
@@ -325,11 +325,35 @@
   #intro .introfoot a:hover{color:var(--gold-soft);border-color:var(--gold);}
   #intro .introfoot .sep{color:var(--line);}
 
+  /* nav tools wrapper + mobile hamburger */
+  #toolbtns{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
+  #navToggle{display:none;}
+  /* fold-away tab to reopen the details panel */
+  #panelTab{position:fixed;top:calc(var(--hdr,64px) + 16px);right:0;z-index:31;display:none;
+    background:var(--panel);border:1px solid var(--line);border-right:none;border-radius:9px 0 0 9px;
+    color:var(--gold-soft);padding:12px 8px;cursor:pointer;font-family:"Space Mono",monospace;font-size:10px;
+    letter-spacing:.18em;text-transform:uppercase;writing-mode:vertical-rl;transform:rotate(180deg);
+    box-shadow:-5px 6px 18px rgba(0,0,0,.4);}
+  #panelTab.show{display:block;}
+  #panelTab:hover{color:var(--parch);border-color:var(--line-bright);}
+
   @media (max-width:760px){
-    #panel{width:100%;}
-    .search input{width:140px;}
-    #hint.shift{right:18px;}
+    header{gap:9px;padding:10px 14px;}
+    .brand h1{font-size:18px;} .brand .eyebrow{font-size:9px;margin-bottom:4px;}
+    .toolbar{gap:8px;width:100%;}
+    .search{flex:1;min-width:0;} .search input{width:100%;}
+    #searchResults{left:0;right:0;width:auto;}
+    #navToggle{display:inline-flex;}
+    #toolbtns{display:none;order:10;flex-basis:100%;justify-content:flex-start;margin-top:2px;}
+    #toolbtns.open{display:flex;}
+    #panel{top:auto;bottom:0;left:0;width:100%;height:64vh;border-left:none;border-top:1px solid var(--line);
+      border-radius:14px 14px 0 0;transform:translateY(100%);}
+    #panel.open{transform:translateY(0);}
+    #panelTab{top:auto;bottom:0;right:14px;writing-mode:horizontal-tb;transform:none;
+      border:1px solid var(--line);border-bottom:none;border-radius:9px 9px 0 0;padding:8px 14px;letter-spacing:.12em;}
+    #hint{display:none;}
     #legend{display:none;}
+    #disc-chip{font-size:9px;padding:5px 10px;}
   }
   @media (prefers-reduced-motion:reduce){
     *{transition:none!important;}
@@ -351,14 +375,17 @@
       <span class="count" id="scount"></span>
       <div id="searchResults"></div>
     </div>
-    <button class="tool" id="btnConst">Focus: Constitution</button>
-    <button class="tool" id="btnTheory" style="border-color:var(--gold);color:var(--gold-soft)">⚖ Theory Builder</button>
-    <button class="tool" id="btnMode">◐ Radial view</button>
-    <button class="tool" id="btnZout" title="Zoom out (−)">&minus;</button>
-    <button class="tool" id="btnZin" title="Zoom in (+)">+</button>
-    <button class="tool" id="btnFit" title="Fit to screen (F)">Fit</button>
-    <button class="tool" id="btnExpand">Expand all</button>
-    <button class="tool" id="btnCollapse">Collapse</button>
+    <button class="tool" id="navToggle" aria-label="Show tools" aria-expanded="false">☰ Tools</button>
+    <div id="toolbtns">
+      <button class="tool" id="btnConst">Focus: Constitution</button>
+      <button class="tool" id="btnTheory" style="border-color:var(--gold);color:var(--gold-soft)">⚖ Theory Builder</button>
+      <button class="tool" id="btnMode">◐ Radial view</button>
+      <button class="tool" id="btnZout" title="Zoom out (−)">&minus;</button>
+      <button class="tool" id="btnZin" title="Zoom in (+)">+</button>
+      <button class="tool" id="btnFit" title="Fit to screen (F)">Fit</button>
+      <button class="tool" id="btnExpand">Expand all</button>
+      <button class="tool" id="btnCollapse">Collapse</button>
+    </div>
   </div>
   <div class="legalbar" id="legalbar">⚠ <b>Educational information only — NOT legal advice.</b> The author is <b>not a lawyer</b>; this is general legal information published as protected speech, not the practice of law, and no attorney-client relationship is created. <span class="lk">Read the full disclaimer →</span></div>
 </header>
@@ -372,6 +399,7 @@
 <aside id="panel" aria-live="polite">
   <div class="pbar">
     <span class="ptag" id="ptag">—</span>
+    <button class="close" id="pcollapse" aria-label="Fold panel" title="Fold the panel (keeps your place)">⟩</button>
     <button class="close" id="pclose" aria-label="Close">&times;</button>
   </div>
   <div class="pbody">
@@ -382,6 +410,7 @@
     <div class="kids" id="pkids"></div>
   </div>
 </aside>
+<button id="panelTab" title="Reopen details panel">Details</button>
 
 <div id="legend">
   <div class="lhead">Sources & levels of law</div>
@@ -2755,6 +2784,7 @@ function openPanel(id){
     }));
   } else { kids.style.display='none'; kids.innerHTML=''; }
   panel.classList.add('open');
+  document.getElementById('panelTab').classList.remove('show');
   document.getElementById('hint').classList.add('shift');
 }
 /* inject Focus / Isolate controls into the panel bar */
@@ -2774,7 +2804,21 @@ document.getElementById('pclose').addEventListener('click',()=>{
   panel.classList.remove('open'); selectedId=null;
   Object.values(nodeEls).forEach(el=>el.classList.remove('selected'));
   document.getElementById('hint').classList.remove('shift');
+  document.getElementById('panelTab').classList.remove('show');
 });
+/* fold the panel away (keeps your selection) and offer a tab to reopen it */
+document.getElementById('pcollapse').addEventListener('click',()=>{
+  panel.classList.remove('open');
+  document.getElementById('hint').classList.remove('shift');
+  if(selectedId) document.getElementById('panelTab').classList.add('show');
+});
+document.getElementById('panelTab').addEventListener('click',()=>{
+  document.getElementById('panelTab').classList.remove('show');
+  if(selectedId){ panel.classList.add('open'); document.getElementById('hint').classList.add('shift'); }
+});
+/* mobile: hamburger toggles the tool buttons */
+(function(){ const nt=document.getElementById('navToggle'), tb=document.getElementById('toolbtns');
+  nt.addEventListener('click',()=>{ const open=tb.classList.toggle('open'); nt.setAttribute('aria-expanded',open?'true':'false'); setHdr&&setHdr(); }); })();
 
 /* ---- search ---- */
 const searchEl=document.getElementById('search');
