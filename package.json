@@ -1,0 +1,12 @@
+{
+  "name": "lawnavi-local",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Law Navi local privacy sidecar — argon2id KDF, KMAC256 MAC, SHA3-256 hashing, ML-DSA-87 signatures, AES-256-GCM encrypted matter vault, local-LLM proxy. Keeps lawyer/client data entirely on-device.",
+  "scripts": { "start": "node lawnavi-local.mjs" },
+  "dependencies": {
+    "@noble/hashes": "^2.2.0",
+    "@noble/post-quantum": "^0.6.1"
+  }
+}

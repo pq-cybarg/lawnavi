@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Law Navi — Local Privacy Sidecar (FIPS / PQC)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Public+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0A1A2F;--bg2:#0d2240;--panel:#11243f;--line:#2E4A6B;--line2:#5B8FB9;--ink:#EAF0F6;--dim:#9DB1C7;--faint:#6E84A0;--gold:#C9A227;--gold2:#E0C25B;--parch:#E8DCC0;--red:#C0473F;--green:#6FBF73;}
+  *{box-sizing:border-box;}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Public Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.6;}
+  body{background-image:linear-gradient(rgba(91,143,185,0.05) 1px,transparent 1px),linear-gradient(90deg,rgba(91,143,185,0.05) 1px,transparent 1px);background-size:40px 40px;}
+  a{color:var(--gold2);text-decoration:none;border-bottom:1px solid rgba(201,162,39,.35);}
+  a:hover{color:var(--parch);border-color:var(--gold);}
+  .wrap{max-width:880px;margin:0 auto;padding:0 22px 80px;}
+  header.top{position:sticky;top:0;z-index:5;background:linear-gradient(180deg,rgba(8,20,38,.97),rgba(8,20,38,.8));border-bottom:1px solid var(--line);backdrop-filter:blur(6px);}
+  header.top .inner{max-width:880px;margin:0 auto;padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  header.top .eyebrow{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.32em;text-transform:uppercase;color:var(--gold);}
+  header.top h1{font-family:"Spectral",serif;font-weight:600;font-size:19px;margin:2px 0 0;}
+  header.top .back{margin-left:auto;font-size:13px;}
+  .legalbar{background:rgba(194,71,63,.16);border-bottom:1px solid var(--red);color:#EBB9B4;font-size:12px;text-align:center;padding:7px 22px;}
+  .legalbar b{color:#fff;}
+  .hero{padding:46px 0 8px;}
+  .hero .k{font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--gold);}
+  .hero h2{font-family:"Spectral",serif;font-weight:600;font-size:34px;line-height:1.1;margin:10px 0 12px;color:var(--parch);}
+  .hero p{font-size:16px;color:var(--dim);max-width:680px;}
+  h3{font-family:"Spectral",serif;font-size:22px;color:var(--parch);margin:38px 0 10px;border-top:1px solid var(--line);padding-top:24px;}
+  p,li{color:var(--dim);}
+  b,strong{color:var(--ink);}
+  code{font-family:"Space Mono",monospace;font-size:.86em;background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--gold2);}
+  pre{background:#0b1b31;border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:9px;padding:14px 16px;overflow:auto;}
+  pre code{background:none;border:none;padding:0;color:var(--ink);font-size:13px;line-height:1.7;}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);}
+  td code{white-space:nowrap;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:16px 0;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:14px 16px;}
+  .card .t{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:6px;}
+  .card .v{font-size:15px;color:var(--ink);font-weight:600;}
+  .card .d{font-size:12px;color:var(--faint);margin-top:4px;}
+  .pill{display:inline-block;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.08em;border:1px solid var(--green);color:var(--green);border-radius:20px;padding:2px 9px;margin:2px 4px 2px 0;}
+  .note{background:rgba(201,162,39,.08);border:1px solid rgba(201,162,39,.3);border-radius:10px;padding:13px 16px;font-size:13.5px;color:var(--dim);margin:16px 0;}
+  footer{border-top:1px solid var(--line);margin-top:50px;padding-top:22px;font-size:12.5px;color:var(--faint);display:flex;gap:8px 14px;flex-wrap:wrap;align-items:center;}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="legalbar">⚠ <b>Educational information only — not legal advice.</b> The author is not a lawyer. <a href="../#" onclick="return true">Full disclaimer on the main app</a>.</div>
+  <div class="inner">
+    <div><div class="eyebrow">Law Navi</div><h1>Local Privacy Sidecar</h1></div>
+    <a class="back" href="../">← Back to the map</a>
+  </div>
+</header>
+
+<div class="wrap">
+  <section class="hero">
+    <div class="k">Optional · runs on your machine</div>
+    <h2>Post-quantum crypto &amp; an encrypted matter vault — entirely on-device.</h2>
+    <p>Law Navi runs fully in your browser. This optional companion process adds <b>validated-grade, post-quantum cryptography</b> and a <b>confidential matter vault</b> for lawyers and clients who need it — without anything ever leaving the local machine. No cloud, no telemetry, no account.</p>
+    <p style="margin-top:14px"><span class="pill">argon2id</span><span class="pill">AES-256-GCM</span><span class="pill">KMAC256</span><span class="pill">SHA3-256</span><span class="pill">ML-DSA-87</span><span class="pill">ML-KEM-1024</span><span class="pill">FIPS-optional</span></p>
+  </section>
+
+  <h3>Why it exists</h3>
+  <p>Attorney work product and client communications are confidential and often privileged. A browser tab is fine for studying the law, but for storing real matter data you want strong encryption at rest, authenticated integrity, post-quantum signatures, and an auditable trail — all under your sole control. The sidecar provides exactly that, as a single dependency-light Node process bound to <code>127.0.0.1</code> only.</p>
+  <div class="note"><b>Privacy model:</b> the sidecar listens on localhost only, requires a bearer token (printed once at startup), stores everything <b>encrypted at rest</b> in a directory you choose, keeps the master key <b>only in memory</b> (derived from your passphrase), and never makes an outbound connection except — if you explicitly configure one — to a <b>local</b> LLM you run yourself.</p>
+
+  <h3>The cryptographic suite</h3>
+  <table>
+    <tr><th>Purpose</th><th>Algorithm</th><th>Notes</th></tr>
+    <tr><td>Key derivation</td><td><code>argon2id</code></td><td>Memory-hard (t=3, m=64&nbsp;MiB, p=4) → 256-bit key</td></tr>
+    <tr><td>Encryption at rest</td><td><code>AES-256-GCM</code></td><td>Authenticated; via Node WebCrypto SubtleCrypto</td></tr>
+    <tr><td>Integrity / MAC</td><td><code>KMAC256</code></td><td>Keyed; chains the tamper-evident audit log</td></tr>
+    <tr><td>Hashing</td><td><code>SHA3-256</code></td><td>Fingerprints &amp; chaining</td></tr>
+    <tr><td>Signatures</td><td><code>ML-DSA-87</code></td><td>FIPS&nbsp;204 post-quantum (native; falls back to Ed25519)</td></tr>
+    <tr><td>Key encapsulation</td><td><code>ML-KEM-1024</code></td><td>FIPS&nbsp;203 post-quantum (when the build supports it)</td></tr>
+  </table>
+  <p style="font-size:13px;color:var(--faint)">PQC is preferred everywhere it is available; classical algorithms are used only where compatibility requires it (for example, the in-browser vault uses AES-GCM + PBKDF2 because browsers do not yet expose argon2id / ML-DSA in WebCrypto).</p>
+
+  <h3>Quick start</h3>
+  <pre><code># 1) get the two files: lawnavi-local.mjs and package.json
+# 2) install the audited pure-JS crypto deps (@noble/hashes, @noble/post-quantum)
+npm install
+
+# 3) run it (a passphrase unlocks the encrypted matter vault)
+LAWNAVI_PASSPHRASE='a long passphrase you remember' node lawnavi-local.mjs
+
+# optional: force OpenSSL FIPS mode for the AES/SHA paths
+LAWNAVI_PASSPHRASE='…' LAWNAVI_FIPS=1 node lawnavi-local.mjs</code></pre>
+  <p>Then, in the main app, open <b>🔒 → “Detect local FIPS/PQC sidecar”</b>. The startup banner prints a one-time <b>bearer token</b> — paste it into your own client/scripts to use the protected endpoints.</p>
+
+  <h3>Configuration (environment variables)</h3>
+  <table>
+    <tr><th>Variable</th><th>Default</th><th>Meaning</th></tr>
+    <tr><td><code>LAWNAVI_PASSPHRASE</code></td><td>—</td><td>Unlocks the encrypted matter vault (argon2id-derived key). Without it, crypto-info still works but the vault stays locked.</td></tr>
+    <tr><td><code>LAWNAVI_DATA</code></td><td><code>~/.lawnavi</code></td><td>Where encrypted matters, salt, and the audit log live (files are <code>0600</code>).</td></tr>
+    <tr><td><code>LAWNAVI_TOKEN</code></td><td>random</td><td>Bearer token for protected endpoints. A fresh random one is generated if unset.</td></tr>
+    <tr><td><code>LAWNAVI_FIPS</code></td><td><code>0</code></td><td>Set to <code>1</code> to force OpenSSL FIPS mode for the AES/SHA operations.</td></tr>
+    <tr><td><code>PORT</code></td><td><code>8787</code></td><td>Localhost port.</td></tr>
+    <tr><td><code>LAWNAVI_LLM_URL</code></td><td>—</td><td>Optional local LLM endpoint to proxy (Ollama or OpenAI-compatible). Local only.</td></tr>
+  </table>
+
+  <h3>API endpoints</h3>
+  <table>
+    <tr><th>Method &amp; path</th><th>Auth</th><th>Purpose</th></tr>
+    <tr><td><code>GET /api/health</code></td><td>public</td><td>Liveness probe</td></tr>
+    <tr><td><code>GET /api/crypto/info</code></td><td>public</td><td>Reports suite, FIPS state, PQC algorithms, vault status</td></tr>
+    <tr><td><code>POST /api/crypto/encrypt</code> · <code>/decrypt</code></td><td>token</td><td>AES-256-GCM with the vault key</td></tr>
+    <tr><td><code>POST /api/crypto/sign</code> · <code>/verify</code></td><td>token</td><td>ML-DSA-87 (or Ed25519) signatures</td></tr>
+    <tr><td><code>GET/PUT/DELETE /api/matters/:id</code></td><td>token</td><td>Encrypted matter vault; DELETE securely overwrites then unlinks</td></tr>
+    <tr><td><code>GET /api/audit</code></td><td>token</td><td>KMAC256-chained audit log + integrity check</td></tr>
+    <tr><td><code>POST /api/ai/chat</code></td><td>token</td><td>Proxy to a local LLM you configure (never a cloud)</td></tr>
+  </table>
+
+  <h3>Hardening</h3>
+  <div class="grid">
+    <div class="card"><div class="t">Network</div><div class="v">localhost only</div><div class="d">Binds 127.0.0.1; origin allowlist for localhost/file</div></div>
+    <div class="card"><div class="t">Auth</div><div class="v">Bearer token</div><div class="d">Constant-time comparison; printed once at startup</div></div>
+    <div class="card"><div class="t">Input</div><div class="v">4&nbsp;MB cap · strict JSON</div><div class="d">No eval, no dynamic import beyond the crypto libs</div></div>
+    <div class="card"><div class="t">At rest</div><div class="v">AES-256-GCM · 0600</div><div class="d">Key only in memory; secure-wipe on delete</div></div>
+    <div class="card"><div class="t">Integrity</div><div class="v">KMAC256 chain</div><div class="d">Tamper-evident, key-authenticated audit log</div></div>
+    <div class="card"><div class="t">Dependencies</div><div class="v">audited noble</div><div class="d">Pure-JS @noble/hashes + @noble/post-quantum only</div></div>
+  </div>
+
+  <h3>On FIPS</h3>
+  <p>The sidecar can run under OpenSSL 3's FIPS provider (<code>LAWNAVI_FIPS=1</code>) so the AES-GCM and SHA operations use validated paths. Note that <code>argon2id</code> — chosen for its memory-hardness against modern password attacks — is deliberately <b>not</b> a FIPS-approved KDF, so a strict-FIPS-only deployment would substitute PBKDF2. Browser WebCrypto is never a FIPS-validated module; for validated FIPS, run the operations here under a FIPS-built Node/OpenSSL. This is an honest, security-first set of trade-offs, not a compliance claim.</p>
+
+  <h3>Get the source</h3>
+  <p><a href="https://github.com/pq-cybarg/lawnavi/blob/main/lawnavi-local.mjs">lawnavi-local.mjs</a> · <a href="https://github.com/pq-cybarg/lawnavi">repository</a> · the entire project is a few static files and one optional Node script — read every line before you run it.</p>
+
+  <footer>
+    <a href="../">← Law Navi map</a><span>·</span>
+    <a href="https://github.com/pq-cybarg/lawnavi" target="_blank" rel="noopener noreferrer">GitHub</a><span>·</span>
+    <a href="https://github.com/pq-cybarg/lawnavi/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a><span>·</span>
+    <span>Educational information only — not legal advice. The author is not a lawyer.</span>
+  </footer>
+</div>
+</body>
+</html>
