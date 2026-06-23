@@ -269,11 +269,18 @@
   @media (max-width:820px){ #tb .tb-body{flex-direction:column;} #tb .tb-eval{width:auto;border-left:none;border-top:1px solid var(--line);} }
 
   /* ---- disclaimer ---- */
-  #disc-chip{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:36;
-    background:rgba(194,71,63,0.16);border:1px solid var(--k-exploit);color:#E9B7B2;
-    border-radius:20px;padding:6px 14px;font-size:10px;cursor:pointer;backdrop-filter:blur(6px);
-    font-family:"Space Mono",monospace;letter-spacing:.06em;text-transform:uppercase;}
-  #disc-chip:hover{background:rgba(194,71,63,0.30);color:#fff;}
+  /* combined bottom bar: controls hint + disclaimer */
+  #footbar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:36;
+    display:flex;align-items:center;gap:10px;max-width:calc(100vw - 32px);
+    background:rgba(13,34,64,0.9);border:1px solid var(--line);border-radius:22px;
+    padding:7px 16px;backdrop-filter:blur(6px);font-family:"Space Mono",monospace;font-size:10px;
+    letter-spacing:.05em;color:var(--ink-faint);transition:transform .28s;white-space:nowrap;}
+  #footbar.shift{transform:translateX(calc(-50% - 190px));}
+  #footbar b{color:var(--ink-dim);font-weight:700;}
+  #footbar .fb-sep{opacity:.45;}
+  #footbar .fb-disc{color:#E9B7B2;}
+  #footbar .fb-disc .lk{color:var(--gold-soft);text-decoration:underline;cursor:pointer;}
+  #footbar .fb-disc .lk:hover{color:#fff;}
   #disc{position:fixed;inset:0;z-index:100;background:rgba(4,10,20,0.74);display:none;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(3px);}
   #disc.open{display:flex;}
   #disc .box{max-width:700px;max-height:85vh;overflow:auto;background:linear-gradient(180deg,#12253f,#0b1b31);
@@ -299,12 +306,6 @@
   #legend .row:last-child{margin-bottom:0;}
   #legend .sw{width:11px;height:11px;border-radius:3px;flex:0 0 auto;}
 
-  /* ---- hint / minimap badge ---- */
-  #hint{position:fixed;right:18px;bottom:18px;z-index:35;font-family:"Space Mono",monospace;
-    font-size:10px;color:var(--ink-faint);background:rgba(13,34,64,0.85);border:1px solid var(--line);
-    border-radius:20px;padding:7px 14px;letter-spacing:.05em;transition:right .28s;}
-  #hint.shift{right:398px;}
-
   /* intro overlay */
   #intro{position:fixed;inset:0;z-index:60;background:radial-gradient(120% 90% at 50% 20%,#13294a,#070f1d 75%);
     display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
@@ -329,13 +330,14 @@
   #toolbtns{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
   #navToggle{display:none;}
   /* fold-away tab to reopen the details panel */
-  #panelTab{position:fixed;top:calc(var(--hdr,64px) + 16px);right:0;z-index:31;display:none;
-    background:var(--panel);border:1px solid var(--line);border-right:none;border-radius:9px 0 0 9px;
-    color:var(--gold-soft);padding:12px 8px;cursor:pointer;font-family:"Space Mono",monospace;font-size:10px;
-    letter-spacing:.18em;text-transform:uppercase;writing-mode:vertical-rl;transform:rotate(180deg);
-    box-shadow:-5px 6px 18px rgba(0,0,0,.4);}
-  #panelTab.show{display:block;}
-  #panelTab:hover{color:var(--parch);border-color:var(--line-bright);}
+  /* fold-away tab — a clean pull-tab that pops out of the right edge */
+  #panelTab{position:fixed;top:calc(var(--hdr,64px) + 22px);right:0;z-index:31;display:none;
+    align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--line-bright);border-right:none;
+    border-radius:11px 0 0 11px;color:var(--gold-soft);padding:11px 16px 11px 13px;cursor:pointer;
+    font-size:12.5px;font-weight:600;box-shadow:-7px 7px 22px rgba(0,0,0,.5);}
+  #panelTab::before{content:'‹';font-size:15px;line-height:1;}
+  #panelTab.show{display:inline-flex;}
+  #panelTab:hover{background:var(--panel);color:var(--parch);}
 
   @media (max-width:760px){
     header{gap:9px;padding:10px 14px;}
@@ -349,11 +351,15 @@
     #panel{top:auto;bottom:0;left:0;width:100%;height:64vh;border-left:none;border-top:1px solid var(--line);
       border-radius:14px 14px 0 0;transform:translateY(100%);}
     #panel.open{transform:translateY(0);}
-    #panelTab{top:auto;bottom:0;right:14px;writing-mode:horizontal-tb;transform:none;
-      border:1px solid var(--line);border-bottom:none;border-radius:9px 9px 0 0;padding:8px 14px;letter-spacing:.12em;}
-    #hint{display:none;}
+    /* fold tab pops up from the bottom on mobile */
+    #panelTab{top:auto;bottom:0;right:14px;border:1px solid var(--line);border-bottom:none;border-right:1px solid var(--line);
+      border-radius:11px 11px 0 0;padding:8px 16px;box-shadow:0 -6px 18px rgba(0,0,0,.45);}
+    #panelTab::before{content:'⌃';}
     #legend{display:none;}
-    #disc-chip{font-size:9px;padding:5px 10px;}
+    /* footbar: drop the controls hint, keep just the disclaimer; hide entirely when the bottom-sheet panel is up */
+    #footbar{font-size:9px;padding:6px 13px;gap:7px;}
+    #footbar .fb-hint,#footbar .fb-sep{display:none;}
+    #footbar.shift{display:none;}
   }
   @media (prefers-reduced-motion:reduce){
     *{transition:none!important;}
@@ -429,13 +435,11 @@
   <div class="row"><span class="sw" style="background:var(--k-doctrine)"></span>Doctrine / how it fits</div>
 </div>
 
-<div id="hint">drag to pan · scroll to zoom · <b>Tab</b> then <b>↑↓←→</b> to browse · <b>R</b> rotates view</div>
+<div id="footbar"><span class="fb-hint">drag · scroll to zoom · <b>Tab</b>+<b>↑↓←→</b> browse · <b>R</b> rotate</span><span class="fb-sep">·</span><span class="fb-disc">⚠ Not legal advice — <span class="lk" id="footDiscLk">disclaimer</span></span></div>
 <div id="isobar">Isolated: <b id="isoname"></b><button id="isoexit">↩ Back to full map</button></div>
 <div id="tb" role="dialog" aria-label="Legal Theory Builder"></div>
 <input id="tbImport" type="file" accept=".json,application/json" style="display:none">
 <datalist id="tbNodes"></datalist>
-
-<div id="disc-chip">⚠ Not legal advice — disclaimer</div>
 <div id="disc" role="dialog" aria-modal="true" aria-label="Legal disclaimer and terms of use">
   <div class="box">
     <div class="eyebrow">Law Navi</div>
@@ -2785,7 +2789,7 @@ function openPanel(id){
   } else { kids.style.display='none'; kids.innerHTML=''; }
   panel.classList.add('open');
   document.getElementById('panelTab').classList.remove('show');
-  document.getElementById('hint').classList.add('shift');
+  document.getElementById('footbar').classList.add('shift');
 }
 /* inject Focus / Isolate controls into the panel bar */
 (function(){ const pbar=document.querySelector('#panel .pbar'), close=pbar.querySelector('.close');
@@ -2803,18 +2807,18 @@ function openPanel(id){
 document.getElementById('pclose').addEventListener('click',()=>{
   panel.classList.remove('open'); selectedId=null;
   Object.values(nodeEls).forEach(el=>el.classList.remove('selected'));
-  document.getElementById('hint').classList.remove('shift');
+  document.getElementById('footbar').classList.remove('shift');
   document.getElementById('panelTab').classList.remove('show');
 });
 /* fold the panel away (keeps your selection) and offer a tab to reopen it */
 document.getElementById('pcollapse').addEventListener('click',()=>{
   panel.classList.remove('open');
-  document.getElementById('hint').classList.remove('shift');
+  document.getElementById('footbar').classList.remove('shift');
   if(selectedId) document.getElementById('panelTab').classList.add('show');
 });
 document.getElementById('panelTab').addEventListener('click',()=>{
   document.getElementById('panelTab').classList.remove('show');
-  if(selectedId){ panel.classList.add('open'); document.getElementById('hint').classList.add('shift'); }
+  if(selectedId){ panel.classList.add('open'); document.getElementById('footbar').classList.add('shift'); }
 });
 /* mobile: hamburger toggles the tool buttons */
 (function(){ const nt=document.getElementById('navToggle'), tb=document.getElementById('toolbtns');
@@ -2928,7 +2932,7 @@ if(window.ResizeObserver){ try{ new ResizeObserver(setHdr).observe(document.quer
 /* disclaimer modal */
 (function(){ const d=document.getElementById('disc'); if(!d) return;
   const openD=()=>d.classList.add('open'), closeD=()=>d.classList.remove('open');
-  const chip=document.getElementById('disc-chip'); if(chip) chip.addEventListener('click',openD);
+  const chip=document.getElementById('footDiscLk'); if(chip) chip.addEventListener('click',e=>{ e.stopPropagation(); openD(); });
   const lbar=document.getElementById('legalbar'); if(lbar) lbar.addEventListener('click',openD);
   try{ if(!localStorage.getItem('lawNaviDiscAck')) setTimeout(openD,400); }catch(e){}
   const introD=document.getElementById('introDisc'); if(introD) introD.addEventListener('click',e=>{ e.stopPropagation(); openD(); });
