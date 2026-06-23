@@ -76,7 +76,19 @@
   .search svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:15px;height:15px;
     stroke:var(--ink-faint);fill:none;}
   .search .count{position:absolute;right:9px;top:50%;transform:translateY(-50%);
-    font-family:"Space Mono",monospace;font-size:10px;color:var(--gold);}
+    font-family:"Space Mono",monospace;font-size:10px;color:var(--gold);pointer-events:none;}
+  #searchResults{position:absolute;top:calc(100% + 6px);left:0;width:360px;max-width:calc(100vw - 36px);
+    max-height:62vh;overflow-y:auto;background:var(--panel-2);border:1px solid var(--line-bright);
+    border-radius:10px;box-shadow:0 16px 44px rgba(0,0,0,.55);z-index:60;display:none;padding:5px;}
+  #searchResults.open{display:block;}
+  #searchResults .sr-item{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;
+    border:none;color:var(--ink);padding:7px 9px;border-radius:7px;cursor:pointer;font-family:inherit;}
+  #searchResults .sr-item:hover,#searchResults .sr-item:focus-visible{background:var(--panel);outline:none;}
+  #searchResults .sr-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;}
+  #searchResults .sr-tx{display:flex;flex-direction:column;min-width:0;}
+  #searchResults .sr-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #searchResults .sr-crumb{font-size:10px;color:var(--ink-faint);font-family:"Space Mono",monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #searchResults .sr-empty{padding:9px 11px;color:var(--ink-faint);font-size:12px;}
   button.tool{background:var(--panel);border:1px solid var(--line);color:var(--ink-dim);
     padding:9px 13px;border-radius:8px;font-size:12px;font-family:inherit;cursor:pointer;
     letter-spacing:.02em;transition:all .15s;white-space:nowrap;}
@@ -337,6 +349,7 @@
       <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
       <input id="search" type="text" placeholder="Search the whole map…" autocomplete="off">
       <span class="count" id="scount"></span>
+      <div id="searchResults"></div>
     </div>
     <button class="tool" id="btnConst">Focus: Constitution</button>
     <button class="tool" id="btnTheory" style="border-color:var(--gold);color:var(--gold-soft)">⚖ Theory Builder</button>
@@ -2603,24 +2616,65 @@ document.getElementById('pclose').addEventListener('click',()=>{
 
 /* ---- search ---- */
 const searchEl=document.getElementById('search');
-searchEl.addEventListener('input',()=>{
+const srBox=document.getElementById('searchResults');
+let searchBase=null;                 // snapshot of collapse-state taken when a search begins
+const TEMP_EXPAND_CAP=25, RESULTS_CAP=60;
+function isSubseq(q,s){ let i=0; for(let j=0;j<s.length&&i<q.length;j++){ if(s[j]===q[i]) i++; } return i===q.length; }
+function lev(a,b,max){ const m=a.length,n=b.length; if(Math.abs(m-n)>max) return max+1; let prev=Array.from({length:n+1},(_,i)=>i);
+  for(let i=1;i<=m;i++){ const cur=[i]; let best=i; for(let j=1;j<=n;j++){ const c=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1)); cur[j]=c; if(c<best)best=c; } if(best>max) return max+1; prev=cur; } return prev[n]; }
+function scoreNode(n,q){
+  const name=(n.name||'').toLowerCase();
+  if(name===q) return 1000;
+  if(name.startsWith(q)) return 920-name.length*0.1;
+  const bi=name.indexOf(q); if(bi>=0) return 820-bi-name.length*0.1;
+  if(isSubseq(q,name)) return 560-name.length*0.1;
+  if(q.length>=4){ for(const w of name.split(/[^a-z0-9]+/)){ if(w.length>=3 && lev(q,w,2)<=2) return 470; } }
+  if((n.summary||'').toLowerCase().includes(q)) return 320;
+  if((n.cites||[]).join(' ').toLowerCase().includes(q)) return 260;
+  if(((n.detail||'')+' '+(n.force||'')+' '+(n.enforce||'')+' '+(n.history||'')).toLowerCase().includes(q)) return 160;
+  return 0;
+}
+function crumbOf(id){ const parts=[]; let c=byId[id]&&byId[id].parent; while(c){ parts.unshift(c.node.name); c=c.parent?byId[c.parent.id]:null; } return parts.join(' › '); }
+function clearSearch(){ if(searchBase){ collapsed=new Set(searchBase); searchBase=null; } searchActive=false; hiMatch.clear(); hiPath.clear(); srBox.classList.remove('open'); srBox.innerHTML=''; document.getElementById('scount').textContent=''; render(); }
+function runSearch(){
   const q=searchEl.value.trim().toLowerCase();
-  const cnt=document.getElementById('scount');
-  if(!q){ searchActive=false; hiPath.clear(); hiMatch.clear(); render(); cnt.textContent=''; return; }
+  if(!q){ clearSearch(); return; }
   if(viewRoot!=='root') exitIsolate();
-  const matches=[];
-  Object.values(byId).forEach(r=>{ const n=r.node;
-    const hay=(n.name+' '+(n.summary||'')+' '+(n.detail||'')+' '+(n.force||'')+' '+(n.enforce||'')+' '+(n.history||'')+' '+(n.cites||[]).join(' ')).toLowerCase();
-    if(hay.includes(q)) matches.push(n.id);
-  });
-  cnt.textContent=matches.length;
-  // light the matches AND every bubble that connects them to the root
-  hiMatch=new Set(matches); hiPath=new Set();
-  matches.forEach(id=>{ let c=byId[id]; while(c){ hiPath.add(c.node.id); collapsed.delete(c.node.id); c=c.parent?byId[c.parent.id]:null; } });
-  searchActive=matches.length>0;
+  if(!searchBase) searchBase=new Set(collapsed);     // remember the tree state to restore later
+  collapsed=new Set(searchBase);                     // revert to base, then partial-expand for THIS query only
+  const scored=[];
+  Object.values(byId).forEach(r=>{ const s=scoreNode(r.node,q); if(s>0) scored.push({id:r.node.id,s}); });
+  scored.sort((a,b)=> b.s-a.s || (byId[a.id].node.name.length-byId[b.id].node.name.length));
+  document.getElementById('scount').textContent=scored.length;
+  hiMatch=new Set(scored.map(m=>m.id)); hiPath=new Set();
+  scored.slice(0,TEMP_EXPAND_CAP).forEach(m=>{ let c=byId[m.id]; while(c){ hiPath.add(c.node.id); collapsed.delete(c.node.id); c=c.parent?byId[c.parent.id]:null; } });
+  searchActive=scored.length>0;
   render();
-  if(matches.length){ const v=curVisible.find(x=>x.node.id===matches[0]); if(v) focusNode(matches[0],Math.max(scale,0.6)); }
-});
+  renderResults(scored);
+}
+function renderResults(scored){
+  if(!scored.length){ srBox.innerHTML='<div class="sr-empty">No matches</div>'; srBox.classList.add('open'); return; }
+  const more=scored.length>RESULTS_CAP?('<div class="sr-empty">…and '+(scored.length-RESULTS_CAP)+' more — refine your search</div>'):'';
+  srBox.innerHTML=scored.slice(0,RESULTS_CAP).map(m=>{ const n=byId[m.id].node;
+      const col=getComputedStyle(document.documentElement).getPropertyValue(KIND_VAR[n.kind]||'--k-doctrine');
+      return '<button class="sr-item" data-go="'+m.id+'"><span class="sr-dot" style="background:'+col+'"></span><span class="sr-tx"><span class="sr-name">'+escapeHtml(n.name)+'</span><span class="sr-crumb">'+escapeHtml(crumbOf(m.id)||'—')+'</span></span></button>';
+    }).join('')+more;
+  srBox.classList.add('open');
+  srBox.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>commitResult(b.dataset.go)));
+}
+function commitResult(id){ if(!byId[id])return;
+  if(searchBase){ collapsed=new Set(searchBase); searchBase=null; }   // restore the tree, then keep ONLY this path open
+  searchActive=false; hiMatch.clear(); hiPath.clear();
+  searchEl.value=''; document.getElementById('scount').textContent=''; srBox.classList.remove('open'); srBox.innerHTML='';
+  expandTo(id); collapsed.delete(id);
+  render(); openPanel(id); focusNode(id,Math.max(scale,0.85));
+}
+searchEl.addEventListener('input',runSearch);
+searchEl.addEventListener('focus',()=>{ if(searchEl.value.trim()) runSearch(); });
+searchEl.addEventListener('keydown',e=>{ if(e.key==='Escape'){ e.stopPropagation(); searchEl.value=''; clearSearch(); searchEl.blur(); }
+  else if(e.key==='Enter'){ const f=srBox.querySelector('[data-go]'); if(f) commitResult(f.dataset.go); }
+  else if(e.key==='ArrowDown'){ const f=srBox.querySelector('[data-go]'); if(f){ e.preventDefault(); f.focus(); } } });
+document.addEventListener('click',e=>{ if(!e.target.closest('.search')) srBox.classList.remove('open'); });
 
 /* ---- toolbar ---- */
 document.getElementById('btnExpand').addEventListener('click',()=>{ collapsed.clear(); render(); fit(); });
