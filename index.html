@@ -368,6 +368,38 @@
   #panel #pcollapse{font-size:0;}
   #panel #pcollapse::before{content:'⟩';font-size:18px;}
 
+  /* precedent reliance panel + overturn-impact bar */
+  #precPanel{position:fixed;top:calc(var(--hdr,64px) + 12px);left:12px;width:330px;max-width:calc(100vw - 24px);
+    max-height:calc(100vh - var(--hdr,64px) - 84px);z-index:33;display:none;flex-direction:column;
+    background:linear-gradient(180deg,rgba(13,34,64,.98),rgba(8,20,38,.98));border:1px solid var(--line-bright);
+    border-radius:12px;box-shadow:0 22px 60px rgba(0,0,0,.6);overflow:hidden;}
+  #precPanel.open{display:flex;}
+  #precPanel .pp-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 8px;
+    font-family:"Spectral",serif;color:var(--parchment);font-size:15px;}
+  #precPanel .pp-head button{background:none;border:none;color:var(--ink-faint);font-size:18px;cursor:pointer;line-height:1;}
+  #precPanel #precSearch{margin:0 12px 8px;background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    border-radius:7px;padding:7px 10px;font-family:inherit;font-size:12.5px;outline:none;}
+  #precPanel #precSearch:focus{border-color:var(--line-bright);}
+  #precBody{overflow-y:auto;padding:2px 8px 10px;}
+  #precBody .pp-item{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:none;
+    color:var(--ink);padding:7px 8px;border-radius:7px;cursor:pointer;font-family:inherit;}
+  #precBody .pp-item:hover{background:var(--panel);}
+  #precBody .pp-n{flex:0 0 auto;min-width:26px;text-align:center;font-family:"Space Mono",monospace;font-size:11px;
+    color:var(--bg);background:var(--gold);border-radius:9px;padding:2px 6px;font-weight:700;}
+  #precBody .pp-d{font-size:12.5px;line-height:1.3;}
+  #precBody .pp-back{color:var(--gold-soft);cursor:pointer;font-size:12px;padding:6px 8px;display:inline-block;}
+  #precBody .pp-back:hover{color:var(--parch);}
+  #precBody .pp-sub{font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);padding:9px 8px 3px;}
+  #impactBar{position:fixed;top:calc(var(--hdr,64px) + 10px);left:50%;transform:translateX(-50%);z-index:38;display:none;
+    align-items:center;gap:12px;max-width:calc(100vw - 24px);background:rgba(194,71,63,.2);border:1px solid var(--k-exploit);
+    border-radius:24px;padding:8px 10px 8px 16px;backdrop-filter:blur(6px);color:#EBD6D3;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #impactBar.show{display:flex;}
+  #impactBar #impactTxt{overflow:hidden;text-overflow:ellipsis;}
+  #impactBar b{color:#fff;}
+  #impactBar button{flex:0 0 auto;background:var(--k-exploit);color:#fff;border:none;border-radius:18px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:inherit;}
+  #panel .detail .cite-link{cursor:pointer;border-bottom:1px dashed var(--line-bright);}
+  #panel .detail .cite-link:hover{color:var(--gold-soft);border-color:var(--gold);}
+
   /* disclaimer modal: scale down on medium screens */
   @media (max-width:1024px){
     #disc .box{max-width:92vw;padding:20px 22px;}
@@ -401,6 +433,8 @@
     #footbar .fb-hint,#footbar .fb-sep{display:none;}
     #footbar.shift{display:none;}
     #footTab{width:30px;height:30px;}
+    #precPanel{left:8px;right:8px;width:auto;top:calc(var(--hdr,64px) + 8px);max-height:calc(100vh - var(--hdr,64px) - 56px);}
+    #impactBar{left:8px;right:8px;transform:none;max-width:none;font-size:11px;white-space:normal;border-radius:14px;}
     /* disclaimer modal compact on phones */
     #disc{padding:14px;} #disc .box{padding:16px;max-height:88vh;border-radius:12px;}
     #disc h2{font-size:18px;} #disc p{font-size:12px;line-height:1.55;}
@@ -429,6 +463,7 @@
     <div id="toolbtns">
       <button class="tool" id="btnConst">Focus: Constitution</button>
       <button class="tool" id="btnTheory" style="border-color:var(--gold);color:var(--gold-soft)">⚖ Theory Builder</button>
+      <button class="tool" id="btnPrec" title="See what relies on a precedent / clause, and the overturn blast radius">⟐ Precedents</button>
       <button class="tool" id="btnMode">◐ Radial view</button>
       <button class="tool" id="btnZout" title="Zoom out (−)">&minus;</button>
       <button class="tool" id="btnZin" title="Zoom in (+)">+</button>
@@ -483,6 +518,12 @@
 <div id="footbar"><span class="fb-x" id="fbX" title="Hide this bar">✕</span><span class="fb-hint">drag · scroll to zoom · <b>Tab</b>+<b>↑↓←→</b> browse · <b>R</b> rotate</span><span class="fb-sep">·</span><span class="fb-disc">⚠ Not legal advice — <span class="lk" id="footDiscLk">disclaimer</span></span></div>
 <button id="footTab" title="Show controls &amp; disclaimer">⚠</button>
 <div id="isobar">Isolated: <b id="isoname"></b><button id="isoexit">↩ Back to full map</button></div>
+<div id="precPanel">
+  <div class="pp-head"><span>⟐ Precedent reliance</span><button id="precClose" aria-label="Close">&times;</button></div>
+  <input id="precSearch" placeholder="filter precedents, clauses, roots…" autocomplete="off">
+  <div id="precBody"></div>
+</div>
+<div id="impactBar"><span id="impactTxt"></span><button id="impactClear">✕ clear</button></div>
 <div id="tb" role="dialog" aria-label="Legal Theory Builder"></div>
 <input id="tbImport" type="file" accept=".json,application/json" style="display:none">
 <datalist id="tbNodes"></datalist>
@@ -2351,7 +2392,60 @@ const DATA = {
   ]
  },
 
- /* ===================== 17. HOW IT ALL FITS ===================== */
+ /* ===================== 17. ROOTS & ORIGINS ===================== */
+ {
+  id:"origins", kind:"constitution", name:"Roots & Origins of American Law",
+  summary:"Where U.S. law came from — the older traditions, rights documents, and framers' intent the whole system rests on.",
+  detail:"<p>American law did not appear from nothing in 1787. It inherited centuries of <b>English common law</b>, the rights tradition of <b>Magna Carta</b>, ideas of <b>natural / higher law</b>, Enlightenment political theory, and even <b>Roman / civil law</b> (which still governs Louisiana). The Framers' <b>intent</b> and the era's <b>historical rationales</b> are the bedrock that today's clauses, rights, and precedents ultimately trace back to.</p>",
+  cites:["English common law","Magna Carta (1215)","Natural law","The Federalist Papers (1787-88)"],
+  children:[
+   {id:"or-magna", kind:"constitution", name:"Magna Carta (1215)",
+    summary:"The English charter that first put the king under the law — ancestor of due process and habeas.",
+    detail:"<p>King John's charter established that even the sovereign is <b>bound by law</b>, and its 'law of the land' clause is the direct ancestor of <b>due process</b> and the rule of law that the Framers invoked constantly.</p>",
+    force:"Not binding U.S. law itself; an originating source whose principles were absorbed into the common law and the Constitution.",
+    enforce:"Lives on only through the doctrines it seeded — enforced via the Due Process and Suspension Clauses, not Magna Carta directly.",
+    history:"Echoes in the 5th and 14th Amendment Due Process Clauses and the Habeas Suspension Clause; cited by courts as the lineage of 'law of the land.'",
+    cites:["Magna Carta (1215)","Due Process Clause","Habeas corpus"]},
+   {id:"or-common", kind:"constitution", name:"English Common Law",
+    summary:"The judge-made law of England the colonies adopted as their default legal system.",
+    detail:"<p>Centuries of English <b>case law and custom</b> — contracts, torts, property, crimes, trial by jury — were received by the colonies and remain the backbone of 49 states' private law.</p>",
+    force:"Adopted by state 'reception statutes'; supplies the default rules wherever no statute speaks.",
+    history:"Blackstone's <i>Commentaries</i> (1765-69) was the colonists' law textbook; the common-law method still governs most everyday private law. (Louisiana is the civil-law exception.)",
+    cites:["English common law","Blackstone's Commentaries","Reception statutes"]},
+   {id:"or-natural", kind:"constitution", name:"Natural & Higher Law",
+    summary:"The idea that legitimate law must answer to a higher moral order — 'unalienable Rights.'",
+    detail:"<p>From Aquinas through Locke, the natural-law tradition holds that rights precede government. The <b>Declaration of Independence</b> made it America's founding premise: people are 'endowed by their Creator with certain unalienable Rights.'</p>",
+    force:"Philosophical/foundational; not directly enforceable, but the stated rationale behind the Bill of Rights and appeals to 'higher law.'",
+    history:"Invoked from the Declaration to Dr. King's 'Letter from Birmingham Jail'; echoed in the 9th Amendment's unenumerated rights.",
+    cites:["Declaration of Independence (1776)","Locke","Natural law"]},
+   {id:"or-enlighten", kind:"constitution", name:"Enlightenment Political Theory",
+    summary:"Locke and Montesquieu supplied the social contract, consent, and separation of powers.",
+    detail:"<p><b>Locke</b> (consent of the governed, property rights), <b>Montesquieu</b> (separation of powers), and <b>Blackstone</b> shaped the Constitution's architecture and the Framers' design choices.</p>",
+    force:"Intellectual source; embodied operatively in the Constitution's structure rather than enforceable on its own.",
+    history:"Montesquieu's tripartite separation became Articles I-III; Locke's consent theory underlies popular sovereignty and 'We the People.'",
+    cites:["Locke, Two Treatises","Montesquieu, Spirit of the Laws","Separation of powers"]},
+   {id:"or-federalist", kind:"constitution", name:"The Federalist Papers & Framers' Intent",
+    summary:"The founders' own explanations — the leading evidence of 'original intent.'",
+    detail:"<p>Hamilton, Madison, and Jay's 85 essays argued for ratification and remain the primary window into the <b>Framers' intent</b> and design rationale, heavily cited by originalist judges.</p>",
+    force:"Persuasive, not binding; a primary source for original-meaning interpretation. <b>See 'Schools of Interpretation'.</b>",
+    history:"Cited in countless opinions (separation of powers, the unitary executive, the Commerce Clause) as evidence of the original understanding.",
+    cites:["The Federalist Papers (1787-88)","Madison's Notes","Originalism"]},
+   {id:"or-civil", kind:"constitution", name:"Roman & Civil Law",
+    summary:"The continental civil-law tradition — still the basis of Louisiana's private law.",
+    detail:"<p>Descended from Roman law via the <b>Napoleonic Code</b>, civil law organizes law as a comprehensive code rather than case precedent. It governs <b>Louisiana</b> and influences Puerto Rico.</p>",
+    force:"Operative in Louisiana through its Civil Code; elsewhere a comparative influence.",
+    history:"Why Louisiana uses parishes, usufruct, and forced heirship — a living alternative legal tradition inside the U.S.",
+    cites:["Napoleonic Code","Louisiana Civil Code","Roman law"]},
+   {id:"or-colonial", kind:"constitution", name:"Colonial Charters & the Articles",
+    summary:"Early self-government documents that prefigured the written Constitution.",
+    detail:"<p>The <b>Mayflower Compact</b> (1620), colonial charters, and the <b>Articles of Confederation</b> (1781) were America's first experiments in written, consented government — and the Constitution's immediate predecessors.</p>",
+    force:"Historical predecessors; the Articles were the governing law until superseded by the Constitution in 1789.",
+    history:"The Articles' weakness — no taxing or enforcement power — directly motivated the 1787 Convention and the drive for 'a more perfect Union.'",
+    cites:["Mayflower Compact (1620)","Articles of Confederation (1781)","Colonial charters"]}
+  ]
+ },
+
+ /* ===================== 18. HOW IT ALL FITS ===================== */
  {
   id:"fits", kind:"doctrine", name:"How It All Fits Together",
   summary:"The rules that decide which law wins when many overlap — the glue of the whole system.",
@@ -2821,9 +2915,10 @@ function openPanel(id){
   det+=metaBlock('force','What gives it force / standing',n.force);
   det+=metaBlock('enforce','Enforceability',n.enforce);
   det+=metaBlock('history','Historical result &amp; significance',n.history);
-  if(n.cites && n.cites.length){ det+='<div style="margin-top:12px">'+n.cites.map(c=>'<span class="cite">'+escapeHtml(c)+'</span>').join('')+'</div>'; }
+  if(n.cites && n.cites.length){ det+='<div style="margin-top:12px">'+n.cites.map(c=>{ const k=(typeof PRECW!=='undefined')?PRECW.keyOf(c):null, link=k&&PRECW.has(k); return '<span class="cite'+(link?' cite-link':'')+'"'+(link?(' data-prec="'+escapeHtml(k)+'" title="See what relies on this — and the overturn impact"'):'')+'>'+escapeHtml(c)+'</span>'; }).join('')+'</div>'; }
   const pdet=document.getElementById('pdetail'); pdet.innerHTML=det;
   pdet.querySelectorAll('[data-go]').forEach(a=>a.addEventListener('click',()=>gotoNode(a.dataset.go)));
+  pdet.querySelectorAll('[data-prec]').forEach(a=>a.addEventListener('click',()=>{ if(typeof PRECW!=='undefined') PRECW.show(a.getAttribute('data-prec')); }));
   let path=[],cur=byId[id];
   while(cur){ path.unshift({id:cur.node.id,name:cur.node.name}); cur=cur.parent?byId[cur.parent.id]:null; }
   const pcr=document.getElementById('pcrumb');
@@ -2902,6 +2997,7 @@ function runSearch(){
   const q=searchEl.value.trim().toLowerCase();
   if(!q){ clearSearch(); return; }
   if(viewRoot!=='root') exitIsolate();
+  { const ib=document.getElementById('impactBar'); if(ib) ib.classList.remove('show'); }
   if(!searchBase) searchBase=new Set(collapsed);     // remember the tree state to restore later
   collapsed=new Set(searchBase);                     // revert to base, then partial-expand for THIS query only
   const scored=[];
@@ -2999,6 +3095,66 @@ if(window.ResizeObserver){ try{ new ResizeObserver(setHdr).observe(document.quer
   if(lt) lt.addEventListener('click',()=>foldLeg(false));
   const lp=get('lawNaviLegend');
   if(lp==='1' || (lp===null && window.innerWidth<=760)) foldLeg(true);
+})();
+
+/* ============================================================
+   PRECEDENT RELIANCE / OVERTURN-IMPACT
+   Build a citation/dependency graph from every node's `cites`
+   (cases AND constitutional clauses/amendments/roots), then show
+   what relies on a given precedent — directly and downstream.
+   ============================================================ */
+const PRECW=(function(){
+  const root=document.getElementById('precPanel'), body=document.getElementById('precBody'),
+        bar=document.getElementById('impactBar'), txt=document.getElementById('impactTxt'),
+        psearch=document.getElementById('precSearch');
+  const PREC={}, caseByKey={}, ckCache={}; let lastRanked=[];
+  function key(cite){
+    let s=' '+(cite||'').toLowerCase()+' ';
+    const ym=s.match(/\b(1[5-9]\d\d|20\d\d)\b/); const year=ym?ym[1]:'';
+    s=s.replace(/\([^)]*\)/g,' ').replace(/\b\d+\s+[a-z.]+\s+\d+\b/g,' ');
+    s=s.replace(/[^a-z0-9 .&§-]/g,' ').replace(/\s+/g,' ').trim();
+    if(/\bv\.?\b/.test(s)){ const p=s.split(/\bv\.?\b/); const fw=t=>{const w=(t||'').trim().split(' ').filter(x=>x.length>1);return w[0]||'';};
+      const a=fw(p[0]),b=fw(p[1]); if(!a||!b)return null; return 'c|'+a+'|'+b+'|'+year; }
+    s=s.replace(/[.§]/g,'').replace(/\s+/g,' ').trim(); if(s.length<4) return null; return 'a|'+s+'|'+year;
+  }
+  function ckOf(n){ if(ckCache[n.id]) return ckCache[n.id]; const a=(n.cites||[]).map(key).filter(Boolean); ckCache[n.id]=a; return a; }
+  function build(){ Object.values(byId).forEach(rec=>{ const n=rec.node; const nk=key(n.name); if(nk&&nk[0]==='c') caseByKey[nk]=n.id;
+    (n.cites||[]).forEach(c=>{ const k=key(c); if(!k)return; let p=PREC[k]; if(!p)p=PREC[k]={display:c,by:new Set(),isCase:k[0]==='c'}; p.by.add(n.id); if(c.length<p.display.length)p.display=c; }); }); }
+  function trunkName(id){ let c=byId[id]; while(c&&c.parent&&c.parent.id!=='root') c=byId[c.parent.id]; return c&&byId[c.node.id]?c.node.name:'—'; }
+  function ranked(f){ f=(f||'').toLowerCase();
+    return Object.keys(PREC).map(k=>({k,d:PREC[k].display,n:PREC[k].by.size,isCase:PREC[k].isCase}))
+      .filter(x=>x.n>=2 && (!f || x.d.toLowerCase().includes(f))).sort((a,b)=>b.n-a.n).slice(0,250); }
+  function impact(k){ const direct=new Set(PREC[k]?PREC[k].by:[]); const aff=new Set(); let fr=[k],g=0;
+    while(fr.length && g++<30000){ const cur=fr.pop(); for(const ck in caseByKey){ if(aff.has(ck))continue; if(ckOf(byId[caseByKey[ck]].node).indexOf(cur)>=0){ aff.add(ck); fr.push(ck); } } }
+    const blast=new Set(direct); aff.forEach(ck=>{ blast.add(caseByKey[ck]); if(PREC[ck]) PREC[ck].by.forEach(id=>blast.add(id)); });
+    return {blast,direct:direct.size}; }
+  function renderList(){ lastRanked=ranked(psearch.value);
+    body.innerHTML = lastRanked.length ? lastRanked.map((x,i)=>'<button class="pp-item" data-i="'+i+'"><span class="pp-n">'+x.n+'</span><span class="pp-d">'+escapeHtml(x.d)+(x.isCase?'':' <span style="color:var(--ink-faint);font-size:10px">· authority</span>')+'</span></button>').join('') : '<div class="pp-sub">No precedents match.</div>'; }
+  function renderImpactList(r){ const items=[...r.blast].map(id=>({id,t:trunkName(id),n:byId[id].node.name})).sort((a,b)=> a.t<b.t?-1:a.t>b.t?1:(a.n<b.n?-1:1));
+    let h='<span class="pp-back" data-back>← all precedents</span>'; let cur=null;
+    items.forEach(it=>{ if(it.t!==cur){cur=it.t; h+='<div class="pp-sub">'+escapeHtml(cur)+'</div>';} h+='<button class="pp-item" data-go="'+it.id+'"><span class="pp-d">'+escapeHtml(it.n)+'</span></button>'; });
+    body.innerHTML=h; }
+  function show(k){ if(!PREC[k])return; const r=impact(k);
+    if(searchEl){ searchEl.value=''; document.getElementById('scount').textContent=''; document.getElementById('searchResults').classList.remove('open'); }
+    if(!searchBase) searchBase=new Set(collapsed); collapsed=new Set(searchBase);
+    hiMatch=new Set(r.blast); hiPath=new Set();
+    [...r.blast].slice(0,45).forEach(id=>{ let c=byId[id]; while(c){ hiPath.add(c.node.id); collapsed.delete(c.node.id); c=c.parent?byId[c.parent.id]:null; } });
+    searchActive=true; render();
+    const trunks=new Set(); r.blast.forEach(id=>trunks.add(trunkName(id)));
+    txt.innerHTML='Overturning <b>'+escapeHtml(PREC[k].display)+'</b> would touch <b>'+r.blast.size+'</b> bubble'+(r.blast.size!==1?'s':'')+' across <b>'+trunks.size+'</b> branch'+(trunks.size!==1?'es':'')+' — direct '+r.direct+' · downstream '+(r.blast.size-r.direct);
+    bar.classList.add('show'); root.classList.add('open'); renderImpactList(r); }
+  function clear(){ if(searchBase){ collapsed=new Set(searchBase); searchBase=null; } searchActive=false; hiMatch.clear(); hiPath.clear(); bar.classList.remove('show'); render(); renderList(); }
+  function gotoImpact(id){ expandTo(id); collapsed.delete(id); render(); openPanel(id); focusNode(id,Math.max(scale,0.85)); }
+  body.addEventListener('click',e=>{ const t=e.target.closest('[data-i],[data-go],[data-back]'); if(!t)return;
+    if(t.hasAttribute('data-back')){ clear(); return; }
+    if(t.hasAttribute('data-go')){ gotoImpact(t.getAttribute('data-go')); return; }
+    const x=lastRanked[+t.getAttribute('data-i')]; if(x) show(x.k); });
+  psearch.addEventListener('input',renderList);
+  document.getElementById('precClose').addEventListener('click',()=>root.classList.remove('open'));
+  document.getElementById('impactClear').addEventListener('click',clear);
+  document.getElementById('btnPrec').addEventListener('click',()=>{ if(root.classList.contains('open')) root.classList.remove('open'); else { if(!bar.classList.contains('show')) renderList(); root.classList.add('open'); psearch.focus(); } });
+  build();
+  return { show, clear, keyOf:key, has:k=>!!(PREC[k]&&PREC[k].by.size>=2) };
 })();
 /* disclaimer modal */
 (function(){ const d=document.getElementById('disc'); if(!d) return;
