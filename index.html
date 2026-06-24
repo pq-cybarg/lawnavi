@@ -104,7 +104,7 @@
   #links path.lit{stroke:var(--line-bright);stroke-width:1.8;}
 
   /* ---- nodes ---- */
-  .node{position:absolute;width:234px;background:linear-gradient(180deg,var(--panel),var(--bg-2));
+  .node{position:absolute;width:var(--node-w,234px);background:linear-gradient(180deg,var(--panel),var(--bg-2));
     border:1px solid var(--line);border-left-width:4px;border-radius:11px;
     padding:11px 13px 12px;cursor:pointer;
     box-shadow:0 6px 20px rgba(0,0,0,0.35);transition:transform .12s,box-shadow .2s,border-color .2s,opacity .2s;}
@@ -442,6 +442,11 @@
     #footTab{width:30px;height:30px;}
     #precPanel{left:8px;right:8px;width:auto;top:calc(var(--hdr,64px) + 8px);max-height:calc(100vh - var(--hdr,64px) - 56px);}
     #impactBar{left:8px;right:8px;transform:none;max-width:none;font-size:11px;white-space:normal;border-radius:14px;}
+    .node{padding:9px 11px 10px;}
+    .node .title{font-size:13px;} .node .blurb{font-size:11px;}
+    .node .toggle{width:30px;height:30px;right:-15px;}
+    #panel .pbar{padding-top:18px;}
+    #panel .pbar::before{content:'';position:absolute;top:6px;left:50%;transform:translateX(-50%);width:38px;height:4px;border-radius:2px;background:var(--line-bright);opacity:.7;}
     /* disclaimer modal compact on phones */
     #disc{padding:14px;} #disc .box{padding:16px;max-height:88vh;border-radius:12px;}
     #disc h2{font-size:18px;} #disc p{font-size:12px;line-height:1.55;}
@@ -2617,7 +2622,10 @@ const KIND_LABEL = {root:'The Map',constitution:'Constitution',rights:'Rights / 
   state:'State Law',local:'Local Law',territory:'Territory / D.C.',tribal:'Tribal Law',
   special:'Outside the States',doctrine:'Doctrine',everyday:'Everyday / Process',flux:'In Flux / Contested',procedure:'Procedure',exploit:'Exploit / Tactic'};
 
-const NODE_W = 234, H_GAP = 96, V_GAP = 16, PAD = 80, RING = 300, SPIN = 0.7;
+let NODE_W = 234, H_GAP = 96, V_GAP = 16, RING = 300; const PAD = 80, SPIN = 0.7;
+function sizeForViewport(){ const sm=(typeof window!=='undefined'&&window.innerWidth<=760); const w=sm?188:234; const ch=(w!==NODE_W);
+  NODE_W=w; H_GAP=sm?58:96; V_GAP=sm?12:16; RING=sm?230:300;
+  try{ document.documentElement.style.setProperty('--node-w',NODE_W+'px'); }catch(e){} return ch; }
 const viewport = document.getElementById('viewport');
 const world = document.getElementById('world');
 const linksSvg = document.getElementById('links');
@@ -3121,11 +3129,17 @@ document.getElementById('intro').addEventListener('click',function(){
 /* boot */
 world.setAttribute('role','tree');
 world.setAttribute('aria-label','Map of United States law — Tab to enter, arrow keys to navigate, Enter to open');
+sizeForViewport();
 render(); fit();
 function setHdr(){ const hh=document.querySelector('header'); if(hh) document.documentElement.style.setProperty('--hdr', hh.offsetHeight+'px'); }
 setHdr();
-window.addEventListener('resize',()=>{ setHdr(); applyTransform(); });
+window.addEventListener('resize',()=>{ setHdr(); if(sizeForViewport()) render(); applyTransform(); });
 if(window.ResizeObserver){ try{ new ResizeObserver(setHdr).observe(document.querySelector('header')); }catch(e){} }
+/* mobile: swipe the panel header down to dismiss the bottom sheet */
+(function(){ const p=document.getElementById('panel'); if(!p)return; const bar=p.querySelector('.pbar'); if(!bar)return; let y0=null,dy=0;
+  bar.addEventListener('touchstart',e=>{ if(window.innerWidth>760||!p.classList.contains('open'))return; y0=e.touches[0].clientY; dy=0; p.style.transition='none'; },{passive:true});
+  bar.addEventListener('touchmove',e=>{ if(y0==null)return; dy=e.touches[0].clientY-y0; if(dy>0) p.style.transform='translateY('+dy+'px)'; },{passive:true});
+  bar.addEventListener('touchend',()=>{ if(y0==null)return; p.style.transition=''; p.style.transform=''; if(dy>90){ const pc=document.getElementById('pcollapse'); if(pc) pc.click(); } y0=null; dy=0; }); })();
 /* foldable/dismissible chrome: legalbar X, footbar fold→⚠, legend fold→Levels tab (all persisted) */
 (function(){
   const get=k=>{try{return localStorage.getItem(k)}catch(e){return null}}, set=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
