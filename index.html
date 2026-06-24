@@ -96,7 +96,7 @@
   button.tool:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
 
   /* ---- viewport / world ---- */
-  #viewport{position:fixed;inset:var(--hdr,64px) 0 0 0;z-index:10;overflow:hidden;cursor:grab;}
+  #viewport{position:fixed;inset:var(--hdr,64px) 0 0 0;z-index:10;overflow:hidden;cursor:grab;touch-action:none;}
   #viewport.dragging{cursor:grabbing;}
   #world{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform;}
   #links{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;}
@@ -400,6 +400,12 @@
   #impactBar button{flex:0 0 auto;background:var(--k-exploit);color:#fff;border:none;border-radius:18px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:inherit;}
   #panel .detail .cite-link{cursor:pointer;border-bottom:1px dashed var(--line-bright);}
   #panel .detail .cite-link:hover{color:var(--gold-soft);border-color:var(--gold);}
+  /* one-time mobile gesture hint */
+  #mhint{position:fixed;left:50%;top:calc(var(--hdr,64px) + 14px);transform:translateX(-50%);z-index:39;
+    background:rgba(13,34,64,.96);border:1px solid var(--line-bright);border-radius:20px;padding:9px 16px;
+    color:var(--ink);font-size:12px;line-height:1.4;display:none;box-shadow:0 10px 30px rgba(0,0,0,.5);
+    max-width:calc(100vw - 28px);text-align:center;}
+  #mhint.show{display:block;}
 
   /* disclaimer modal: scale down on medium screens */
   @media (max-width:1024px){
@@ -520,6 +526,7 @@
 
 <div id="footbar"><span class="fb-x" id="fbX" title="Hide this bar">✕</span><span class="fb-hint">drag · scroll to zoom · <b>Tab</b>+<b>↑↓←→</b> browse · <b>R</b> rotate</span><span class="fb-sep">·</span><span class="fb-disc">⚠ Not legal advice — <span class="lk" id="footDiscLk">disclaimer</span></span></div>
 <button id="footTab" title="Show controls &amp; disclaimer">⚠</button>
+<div id="mhint">👆 Pinch to zoom · drag to pan · double-tap to zoom · tap a bubble to open</div>
 <div id="isobar">Isolated: <b id="isoname"></b><button id="isoexit">↩ Back to full map</button></div>
 <div id="precPanel">
   <div class="pp-head"><span>⟐ Precedent reliance</span><button id="precClose" aria-label="Close">&times;</button></div>
@@ -2853,12 +2860,32 @@ function zoomBy(f){ const cx=viewport.clientWidth/2, cy=viewport.clientHeight/2;
   const wx=(cx-tx)/scale, wy=(cy-ty)/scale, ns=Math.min(ZMAX,Math.max(ZMIN,scale*f));
   tx=cx-wx*ns; ty=cy-wy*ns; scale=ns; clampPan(); applyTransform(); }
 
-// touch (basic single-finger pan)
-viewport.addEventListener('touchstart',e=>{ if(e.target.closest('.node'))return; const t=e.touches[0];
+// touch: single-finger pan · two-finger pinch-zoom · double-tap to zoom in
+let pinch=null, lastTap=0, lastTapX=0, lastTapY=0;
+function tdist(t){ return Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY); }
+viewport.addEventListener('touchstart',e=>{
+  if(e.touches.length>=2){ dragging=false; const r=viewport.getBoundingClientRect();
+    const mx=(e.touches[0].clientX+e.touches[1].clientX)/2-r.left, my=(e.touches[0].clientY+e.touches[1].clientY)/2-r.top;
+    pinch={d:tdist(e.touches)||1, s:scale, wx:(mx-tx)/scale, wy:(my-ty)/scale}; return; }
+  if(e.target.closest('.node'))return; const t=e.touches[0];
   dragging=true;sx=t.clientX;sy=t.clientY;stx=tx;sty=ty;},{passive:true});
-viewport.addEventListener('touchmove',e=>{ if(!dragging)return; const t=e.touches[0];
+viewport.addEventListener('touchmove',e=>{
+  if(pinch && e.touches.length>=2){ const r=viewport.getBoundingClientRect();
+    const mx=(e.touches[0].clientX+e.touches[1].clientX)/2-r.left, my=(e.touches[0].clientY+e.touches[1].clientY)/2-r.top;
+    const ns=Math.min(ZMAX,Math.max(ZMIN, pinch.s*(tdist(e.touches)/pinch.d)));
+    scale=ns; tx=mx-pinch.wx*ns; ty=my-pinch.wy*ns; clampPan(); applyTransform(); return; }
+  if(!dragging)return; const t=e.touches[0];
   tx=stx+(t.clientX-sx);ty=sty+(t.clientY-sy);clampPan();applyTransform();},{passive:true});
-viewport.addEventListener('touchend',()=>{dragging=false;});
+viewport.addEventListener('touchend',e=>{
+  if(e.touches.length<2) pinch=null;
+  if(e.touches.length===0){ dragging=false;
+    const ch=e.changedTouches&&e.changedTouches[0]; if(!ch||(e.target.closest&&e.target.closest('.node'))) return;
+    const now=Date.now();
+    if(now-lastTap<300 && Math.abs(ch.clientX-lastTapX)<32 && Math.abs(ch.clientY-lastTapY)<32){
+      const r=viewport.getBoundingClientRect(), px=ch.clientX-r.left, py=ch.clientY-r.top, wx=(px-tx)/scale, wy=(py-ty)/scale;
+      const ns=Math.min(ZMAX, scale*1.8); scale=ns; tx=px-wx*ns; ty=py-wy*ns; clampPan(); applyTransform(); lastTap=0;
+    } else { lastTap=now; lastTapX=ch.clientX; lastTapY=ch.clientY; }
+  }});
 
 /* ---- fit / focus ---- */
 function fit(){
@@ -3117,6 +3144,11 @@ if(window.ResizeObserver){ try{ new ResizeObserver(setHdr).observe(document.quer
   if(lt) lt.addEventListener('click',()=>foldLeg(false));
   const lp=get('lawNaviLegend');
   if(lp==='1' || (lp===null && window.innerWidth<=760)) foldLeg(true);
+  // one-time mobile gesture hint
+  const m=document.getElementById('mhint');
+  if(m && window.innerWidth<=760 && get('lawNaviMhint')!=='1'){ m.classList.add('show'); set('lawNaviMhint','1');
+    const hide=()=>m.classList.remove('show'); setTimeout(hide,6500); m.addEventListener('click',hide);
+    const vp=document.getElementById('viewport'); if(vp) vp.addEventListener('touchstart',hide,{once:true,passive:true}); }
 })();
 
 /* ============================================================
