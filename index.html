@@ -151,13 +151,14 @@
     transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);
     display:flex;flex-direction:column;}
   #panel.open{transform:translateX(0);}
-  #panel .pbar{display:flex;align-items:center;gap:10px;padding:16px 20px 0;}
+  #panel .pbar{display:flex;align-items:center;flex-wrap:wrap;gap:7px;padding:14px 18px 10px;border-bottom:1px solid var(--line);margin-bottom:2px;}
   #panel .ptag{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.16em;
     text-transform:uppercase;padding:4px 9px;border-radius:20px;border:1px solid var(--line);}
   #panel .close{margin-left:auto;background:none;border:none;color:var(--ink-faint);
     font-size:24px;cursor:pointer;line-height:1;padding:0 4px;}
   #panel .close:hover{color:var(--ink);}
-  #panel .pbody{padding:8px 24px 30px;overflow-y:auto;}
+  #panel .pbody{padding:10px 22px 30px;overflow-y:auto;overflow-x:hidden;overflow-wrap:break-word;word-break:break-word;}
+  #panel .detail a,#panel .cite,#panel .crumb{overflow-wrap:anywhere;}
   #panel .crumb{font-family:"Space Mono",monospace;font-size:10px;color:var(--ink-faint);
     margin:14px 0 6px;line-height:1.6;}
   #panel .crumb span{color:var(--line-bright);}
@@ -468,6 +469,8 @@
       <button class="tool" id="btnZout" title="Zoom out (−)">&minus;</button>
       <button class="tool" id="btnZin" title="Zoom in (+)">+</button>
       <button class="tool" id="btnFit" title="Fit to screen (F)">Fit</button>
+      <button class="tool" id="btnExpandLvl" title="Expand one level — breadth-first (key ])">＋ Level</button>
+      <button class="tool" id="btnCollapseLvl" title="Collapse one level (key [)">－ Level</button>
       <button class="tool" id="btnExpand">Expand all</button>
       <button class="tool" id="btnCollapse">Collapse</button>
     </div>
@@ -2874,6 +2877,21 @@ function focusNode(id,targetScale){
   ty=viewport.clientHeight/2 - v.cy*scale;
   applyTransform();
 }
+/* breadth-first level stepping: reveal/peel exactly one ring of the tree per call */
+function expandLevel(){
+  const front=curVisible.filter(v=> v.node.children && v.node.children.length && collapsed.has(v.node.id));
+  if(!front.length) return;
+  const minD=Math.min.apply(null, front.map(v=>v.depth));
+  front.forEach(v=>{ if(v.depth===minD) collapsed.delete(v.node.id); });
+  render(); fit();
+}
+function collapseLevel(){
+  const exp=curVisible.filter(v=> v.node.children && v.node.children.length && !collapsed.has(v.node.id) && v.node.id!==viewRoot);
+  if(!exp.length) return;
+  const maxD=Math.max.apply(null, exp.map(v=>v.depth));
+  exp.forEach(v=>{ if(v.depth===maxD) collapsed.add(v.node.id); });
+  render(); fit();
+}
 
 /* ---- detail panel ---- */
 const panel=document.getElementById('panel');
@@ -3035,6 +3053,8 @@ searchEl.addEventListener('keydown',e=>{ if(e.key==='Escape'){ e.stopPropagation
 document.addEventListener('click',e=>{ if(!e.target.closest('.search')) srBox.classList.remove('open'); });
 
 /* ---- toolbar ---- */
+document.getElementById('btnExpandLvl').addEventListener('click',expandLevel);
+document.getElementById('btnCollapseLvl').addEventListener('click',collapseLevel);
 document.getElementById('btnExpand').addEventListener('click',()=>{ collapsed.clear(); render(); fit(); });
 document.getElementById('btnCollapse').addEventListener('click',()=>{
   collapsed=new Set(); Object.values(byId).forEach(r=>{ if(r.node.id!==viewRoot && r.node.children) collapsed.add(r.node.id); });
@@ -3056,6 +3076,8 @@ window.addEventListener('keydown',e=>{
   else if(e.key==='-'||e.key==='_') zoomBy(1/1.15);
   else if(e.key==='r'||e.key==='R') setMode(mode==='tree'?'radial':'tree');
   else if(e.key==='f'||e.key==='F') fit();
+  else if(e.key===']') expandLevel();
+  else if(e.key==='[') collapseLevel();
   else if(e.key==='Escape'){ if(viewRoot!=='root') exitIsolate();
     else if(panel.classList.contains('open')){ document.getElementById('pclose').click(); }
     else if(searchEl.value){ searchEl.value=''; searchEl.dispatchEvent(new Event('input')); } }
