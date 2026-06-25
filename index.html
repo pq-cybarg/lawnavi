@@ -400,6 +400,46 @@
   #impactBar button{flex:0 0 auto;background:var(--k-exploit);color:#fff;border:none;border-radius:18px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:inherit;}
   #panel .detail .cite-link{cursor:pointer;border-bottom:1px dashed var(--line-bright);}
   #panel .detail .cite-link:hover{color:var(--gold-soft);border-color:var(--gold);}
+  /* Lens / perspective control */
+  #lensPanel{position:fixed;top:calc(var(--hdr,64px) + 12px);left:12px;width:336px;max-width:calc(100vw - 24px);
+    max-height:calc(100vh - var(--hdr,64px) - 84px);z-index:34;display:none;flex-direction:column;
+    background:linear-gradient(180deg,rgba(13,34,64,.98),rgba(8,20,38,.98));border:1px solid var(--line-bright);
+    border-radius:12px;box-shadow:0 22px 60px rgba(0,0,0,.6);overflow:hidden;}
+  #lensPanel.open{display:flex;}
+  #lensPanel .pp-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 8px;
+    font-family:"Spectral",serif;color:var(--parchment);font-size:15px;}
+  #lensPanel .pp-head button{background:none;border:none;color:var(--ink-faint);font-size:18px;cursor:pointer;line-height:1;}
+  #lensPanel .lz-body{overflow-y:auto;padding:0 14px 14px;}
+  #lensPanel .lz-lbl{font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin:8px 0 5px;}
+  #lensPanel #lensPick{width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    border-radius:7px;padding:8px 10px;font-family:inherit;font-size:12.5px;outline:none;}
+  #lensPanel #lensPick:focus{border-color:var(--line-bright);}
+  #lensResults{max-height:168px;overflow-y:auto;margin-top:5px;}
+  #lensResults .lz-r{display:block;width:100%;text-align:left;background:none;border:none;color:var(--ink);
+    padding:6px 8px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12.5px;line-height:1.3;}
+  #lensResults .lz-r:hover,#lensResults .lz-r.on{background:var(--panel);}
+  #lensResults .lz-r.on{outline:1px solid var(--gold);}
+  #lensResults .lz-r small{display:block;color:var(--ink-faint);font-size:10px;margin-top:1px;}
+  #lensPanel .lz-dir{display:flex;gap:7px;}
+  #lensPanel .lz-dir button{flex:1;background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    border-radius:8px;padding:8px 6px;font-family:inherit;font-size:11.5px;cursor:pointer;line-height:1.3;text-align:center;}
+  #lensPanel .lz-dir button.on{border-color:var(--gold);color:var(--gold-soft);background:rgba(193,154,79,.12);}
+  #lensPanel .lz-dir small{display:block;color:inherit;opacity:.66;font-size:10px;font-weight:400;}
+  #lensPanel #lensPersp{width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    border-radius:7px;padding:7px 9px;font-family:inherit;font-size:12.5px;}
+  #lensPanel .lz-go{display:flex;gap:8px;margin-top:12px;}
+  #lensPanel .lz-go button{flex:1;border:none;border-radius:8px;padding:9px;font-family:inherit;font-size:12.5px;cursor:pointer;}
+  #lensPanel .lz-build{background:var(--gold);color:var(--bg);font-weight:700;}
+  #lensPanel .lz-build:hover{filter:brightness(1.08);}
+  #lensPanel .lz-exit{background:var(--panel);border:1px solid var(--line)!important;color:var(--ink);}
+  #lensPanel .lz-exit:disabled{opacity:.4;cursor:default;}
+  #lensBar{position:fixed;top:calc(var(--hdr,64px) + 10px);left:50%;transform:translateX(-50%);z-index:38;display:none;
+    align-items:center;gap:12px;max-width:calc(100vw - 24px);background:rgba(193,154,79,.16);border:1px solid var(--gold);
+    border-radius:24px;padding:8px 10px 8px 16px;backdrop-filter:blur(6px);color:#EDE2C8;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #lensBar.show{display:flex;}
+  #lensBar #lensTxt{overflow:hidden;text-overflow:ellipsis;}
+  #lensBar b{color:#fff;}
+  #lensBar button{flex:0 0 auto;background:var(--gold);color:var(--bg);border:none;border-radius:18px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:700;}
   /* one-time mobile gesture hint */
   #mhint{position:fixed;left:50%;top:calc(var(--hdr,64px) + 14px);transform:translateX(-50%);z-index:39;
     background:rgba(13,34,64,.96);border:1px solid var(--line-bright);border-radius:20px;padding:9px 16px;
@@ -441,7 +481,8 @@
     #footbar.shift{display:none;}
     #footTab{width:30px;height:30px;}
     #precPanel{left:8px;right:8px;width:auto;top:calc(var(--hdr,64px) + 8px);max-height:calc(100vh - var(--hdr,64px) - 56px);}
-    #impactBar{left:8px;right:8px;transform:none;max-width:none;font-size:11px;white-space:normal;border-radius:14px;}
+    #lensPanel{left:8px;right:8px;width:auto;top:calc(var(--hdr,64px) + 8px);max-height:calc(100vh - var(--hdr,64px) - 56px);}
+    #impactBar,#lensBar{left:8px;right:8px;transform:none;max-width:none;font-size:11px;white-space:normal;border-radius:14px;}
     .node{padding:9px 11px 10px;}
     .node .title{font-size:13px;} .node .blurb{font-size:11px;}
     .node .toggle{width:30px;height:30px;right:-15px;}
@@ -476,6 +517,7 @@
       <button class="tool" id="btnConst">Focus: Constitution</button>
       <button class="tool" id="btnTheory" style="border-color:var(--gold);color:var(--gold-soft)">⚖ Theory Builder</button>
       <button class="tool" id="btnPrec" title="See what relies on a precedent / clause, and the overturn blast radius">⟐ Precedents</button>
+      <button class="tool" id="btnLens" title="Re-root the map on any subject and invert the hierarchy — drill down to the foundations it rests on, or roll up to everything that rests on it, through whichever perspective you choose">🧭 Lens</button>
       <button class="tool" id="btnMode">◐ Radial view</button>
       <button class="tool" id="btnZout" title="Zoom out (−)">&minus;</button>
       <button class="tool" id="btnZin" title="Zoom in (+)">+</button>
@@ -539,6 +581,34 @@
   <div id="precBody"></div>
 </div>
 <div id="impactBar"><span id="impactTxt"></span><button id="impactClear">✕ clear</button></div>
+<div id="lensPanel">
+  <div class="pp-head"><span>🧭 Lens · perspective</span><button id="lensClose" aria-label="Close">&times;</button></div>
+  <div class="lz-body">
+    <div class="lz-lbl">Re-root the law on…</div>
+    <input id="lensPick" type="text" placeholder="search for a subject — e.g. Torts, securities, the First Amendment…" autocomplete="off">
+    <div id="lensResults"></div>
+    <div class="lz-lbl">Direction — which way the hierarchy runs</div>
+    <div class="lz-dir">
+      <button type="button" data-dir="found" class="on">↓ Foundations<small>what this rests on — down to precedent &amp; the Constitution</small></button>
+      <button type="button" data-dir="apply">↑ Applications<small>what rests on this — everything downstream</small></button>
+    </div>
+    <div class="lz-lbl">Perspective / role — what surfaces first</div>
+    <select id="lensPersp">
+      <option value="all">Neutral — structure first</option>
+      <option value="litigator">Litigator — doctrine, precedent, procedure</option>
+      <option value="regulator">Regulator — statutes, agencies, enforcement</option>
+      <option value="citizen">Everyday person — rights &amp; real situations</option>
+      <option value="scholar">Scholar — doctrine, origins, history</option>
+      <option value="fed">Federal-first jurisdiction</option>
+      <option value="state">State-first jurisdiction</option>
+    </select>
+    <div class="lz-go">
+      <button type="button" class="lz-build" id="lensBuild">Build view</button>
+      <button type="button" class="lz-exit" id="lensExit" disabled>Exit lens</button>
+    </div>
+  </div>
+</div>
+<div id="lensBar"><span id="lensTxt"></span><button id="lensBarExit">✕ exit lens</button></div>
 <div id="tb" role="dialog" aria-label="Legal Theory Builder"></div>
 <input id="tbImport" type="file" accept=".json,application/json" style="display:none">
 <datalist id="tbNodes"></datalist>
@@ -3019,6 +3089,7 @@ const NAV=[['Law in Flux','flux'],['Law in Practice','practice'],['Outside the S
   ['Constitution branch','const'],['Force, Standing','fit-force'],['state map','st-list'],['Bill of Rights','bor']];
 function linkRefs(html){ NAV.forEach(([ph,id])=>{ if(byId[id]) html=html.split(ph).join('<a class="xref" data-go="'+id+'">'+ph+'</a>'); }); return html; }
 function gotoNode(id){ if(!byId[id])return;
+  if(typeof LENS!=='undefined'&&LENS.active()&&!String(id).startsWith('lens:')) LENS.exit();
   if(viewRoot!=='root') exitIsolate();
   searchActive=false; hiPath.clear(); hiMatch.clear(); if(typeof searchEl!=='undefined'&&searchEl){ searchEl.value=''; document.getElementById('scount').textContent=''; }
   expandTo(id); collapsed.delete(id);   // unfold the target's own items
@@ -3029,7 +3100,7 @@ function focusBranch(id){
   let p=byId[id]; while(p){ collapsed.delete(p.node.id); p=p.parent?byId[p.parent.id]:null; }
   collapsed.delete(id); render(); fit();
 }
-function isolate(id){ viewRoot=id; selectedId=id; collapsed.delete(id); render(); fit();
+function isolate(id){ if(typeof LENS!=='undefined'&&LENS.active())LENS.exit(); viewRoot=id; selectedId=id; collapsed.delete(id); render(); fit();
   document.getElementById('isobar').classList.add('show');
   document.getElementById('isoname').textContent=byId[id].node.name; }
 function exitIsolate(){ viewRoot='root'; document.getElementById('isobar').classList.remove('show'); render(); fit(); }
@@ -3044,6 +3115,8 @@ function openPanel(id){
   document.getElementById('ptitle').textContent=n.name;
   document.getElementById('pplain').textContent=n.summary||'';
   let det='';
+  if(n._real && byId[n._real]) det+='<button class="refbtn" data-lensreal="'+n._real+'">↗ Open “'+escapeHtml(byId[n._real].node.name)+'” in the full map</button>';
+  if(n._ref && n._jump && byId[n._jump]) det+='<button class="refbtn" data-lensjump="'+n._jump+'">↑ Go to where this is expanded in the view</button>';
   if(n.ref && byId[n.ref]) det+='<button class="refbtn" data-go="'+n.ref+'">↪ Open the full “'+escapeHtml(byId[n.ref].node.name)+'” branch &amp; unfold its items</button>';
   det+=linkRefs(n.detail||'');
   det+=metaBlock('force','What gives it force / standing',n.force);
@@ -3053,6 +3126,8 @@ function openPanel(id){
   const pdet=document.getElementById('pdetail'); pdet.innerHTML=det;
   pdet.querySelectorAll('[data-go]').forEach(a=>a.addEventListener('click',()=>gotoNode(a.dataset.go)));
   pdet.querySelectorAll('[data-prec]').forEach(a=>a.addEventListener('click',()=>{ if(typeof PRECW!=='undefined') PRECW.show(a.getAttribute('data-prec')); }));
+  pdet.querySelectorAll('[data-lensreal]').forEach(a=>a.addEventListener('click',()=>{ if(typeof LENS!=='undefined') LENS.exit(); gotoNode(a.getAttribute('data-lensreal')); }));
+  pdet.querySelectorAll('[data-lensjump]').forEach(a=>a.addEventListener('click',()=>navTo(a.getAttribute('data-lensjump'))));
   let path=[],cur=byId[id];
   while(cur){ path.unshift({id:cur.node.id,name:cur.node.name}); cur=cur.parent?byId[cur.parent.id]:null; }
   const pcr=document.getElementById('pcrumb');
@@ -3083,7 +3158,9 @@ function openPanel(id){
   th.onclick=()=>{ if(selectedId) TB.addFromNode(selectedId); };
   const sd=document.createElement('button'); sd.className='pmini'; sd.textContent='Seed ⚖';
   sd.title='Start a new legal theory seeded from this node'; sd.onclick=()=>{ if(selectedId) TB.seedFromNode(selectedId); };
-  pbar.insertBefore(f,close); pbar.insertBefore(iso,close); pbar.insertBefore(th,close); pbar.insertBefore(sd,close);
+  const lz=document.createElement('button'); lz.className='pmini'; lz.textContent='🧭 Lens';
+  lz.title='Re-root the whole map on this subject and invert the hierarchy'; lz.onclick=()=>{ if(selectedId && typeof LENS!=='undefined') LENS.seed(selectedId); };
+  pbar.insertBefore(f,close); pbar.insertBefore(iso,close); pbar.insertBefore(lz,close); pbar.insertBefore(th,close); pbar.insertBefore(sd,close);
 })();
 document.getElementById('pclose').addEventListener('click',()=>{
   panel.classList.remove('open'); selectedId=null;
@@ -3125,11 +3202,12 @@ function scoreNode(n,q){
   if(((n.detail||'')+' '+(n.force||'')+' '+(n.enforce||'')+' '+(n.history||'')).toLowerCase().includes(q)) return 160;
   return 0;
 }
-function crumbOf(id){ const parts=[]; let c=byId[id]&&byId[id].parent; while(c){ parts.unshift(c.node.name); c=c.parent?byId[c.parent.id]:null; } return parts.join(' › '); }
+function crumbOf(id){ const parts=[]; let p=byId[id]&&byId[id].parent; while(p){ parts.unshift(p.name); p=byId[p.id]?byId[p.id].parent:null; } return parts.join(' › '); }
 function clearSearch(){ if(searchBase){ collapsed=new Set(searchBase); searchBase=null; } searchActive=false; hiMatch.clear(); hiPath.clear(); srBox.classList.remove('open'); srBox.innerHTML=''; document.getElementById('scount').textContent=''; render(); }
 function runSearch(){
   const q=searchEl.value.trim().toLowerCase();
   if(!q){ clearSearch(); return; }
+  if(typeof LENS!=='undefined'&&LENS.active())LENS.exit();
   if(viewRoot!=='root') exitIsolate();
   { const ib=document.getElementById('impactBar'); if(ib) ib.classList.remove('show'); }
   if(!searchBase) searchBase=new Set(collapsed);     // remember the tree state to restore later
@@ -3155,6 +3233,7 @@ function renderResults(scored){
   srBox.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>commitResult(b.dataset.go)));
 }
 function commitResult(id){ if(!byId[id])return;
+  if(typeof LENS!=='undefined'&&LENS.active())LENS.exit();
   if(searchBase){ collapsed=new Set(searchBase); searchBase=null; }   // restore the tree, then keep ONLY this path open
   searchActive=false; hiMatch.clear(); hiPath.clear();
   searchEl.value=''; document.getElementById('scount').textContent=''; srBox.classList.remove('open'); srBox.innerHTML='';
@@ -3182,6 +3261,7 @@ document.getElementById('btnZin').addEventListener('click',()=>zoomBy(1.2));
 document.getElementById('btnZout').addEventListener('click',()=>zoomBy(1/1.2));
 document.getElementById('isoexit').addEventListener('click',exitIsolate);
 document.getElementById('btnConst').addEventListener('click',()=>{
+  if(typeof LENS!=='undefined'&&LENS.active())LENS.exit();
   if(viewRoot!=='root') exitIsolate();
   collapsed=new Set(); Object.values(byId).forEach(r=>{ if(r.node.children && r.node.id!=='root' && r.node.id!=='const') collapsed.add(r.node.id); });
   render(); openPanel('const'); focusNode('const',0.85);
@@ -3304,6 +3384,190 @@ const PRECW=(function(){
   document.getElementById('btnPrec').addEventListener('click',()=>{ if(root.classList.contains('open')) root.classList.remove('open'); else { if(!bar.classList.contains('show')) renderList(); root.classList.add('open'); psearch.focus(); } });
   build();
   return { show, clear, keyOf:key, has:k=>!!(PREC[k]&&PREC[k].by.size>=2) };
+})();
+/* ============================================================
+   LAW NAVI · LENS / PERSPECTIVE
+   The law is a graph, not a tree. Re-root it on any subject and
+   invert the hierarchy: drill DOWN to the foundations a subject
+   rests on (its doctrines, the precedents it relies on, the
+   constitutional clauses underneath those, back toward origins)
+   or roll UP to everything that rests on it. A chosen perspective
+   reorders what surfaces first. Shared authorities converge — a
+   precedent relied on by many branches is shown once, then linked.
+   ============================================================ */
+const LENS=(function(){
+  const lpanel=document.getElementById('lensPanel'),
+        bar=document.getElementById('lensBar'), barTxt=document.getElementById('lensTxt'),
+        pick=document.getElementById('lensPick'), results=document.getElementById('lensResults'),
+        perspSel=document.getElementById('lensPersp'), exitBtn=document.getElementById('lensExit');
+  let RELIES=null, RELIED=null, AUTH=null, TOKENS=null, KEYNODE=null, ALIAS=null, TRUNK=null;
+  let st={active:false, rootId:null, dir:'found', persp:'all'};
+  let chosen=null;
+  const CAP=14, D_FOUND=8, D_APPLY=4, MAXN=1400;
+  const STOP=new Set('the of and a an to in for with on at by or as is are it its this that what who how law laws legal acts amendment clause general public other your his her their our about within across into from under over per via right rights system states united national federal state'.split(' '));
+  const PRIORITY={
+    all:['constitution','rights','doctrine','federal','procedure','special','state','local','territory','tribal','everyday','flux','exploit','authority'],
+    litigator:['doctrine','procedure','rights','constitution','federal','special','exploit','state','local','authority','everyday','flux','territory','tribal'],
+    regulator:['federal','special','procedure','state','local','doctrine','constitution','authority','flux','rights','territory','tribal','everyday','exploit'],
+    citizen:['everyday','rights','flux','state','local','federal','procedure','constitution','doctrine','special','territory','tribal','authority','exploit'],
+    scholar:['constitution','doctrine','rights','federal','flux','procedure','special','state','local','authority','territory','tribal','everyday','exploit'],
+    fed:['constitution','rights','federal','special','procedure','doctrine','territory','tribal','authority','state','local','everyday','flux','exploit'],
+    state:['state','local','territory','tribal','everyday','flux','federal','special','procedure','constitution','rights','doctrine','authority','exploit']
+  };
+  function toks(name){ return (name||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(w=>w.length>=4 && !STOP.has(w)); }
+  function roman(n){ const m=[['M',1000],['CM',900],['D',500],['CD',400],['C',100],['XC',90],['L',50],['XL',40],['X',10],['IX',9],['V',5],['IV',4],['I',1]]; let s='',x=n; m.forEach(([r,v])=>{ while(x>=v){s+=r;x-=v;} }); return s; }
+  function trunkOf(id){ if(TRUNK&&TRUNK[id])return TRUNK[id]; let c=byId[id]; while(c&&c.parent&&c.parent.id!=='root') c=byId[c.parent.id]; const t=c?c.node.id:id; if(TRUNK)TRUNK[id]=t; return t; }
+  function uniq(a){ const s=new Set(),o=[]; a.forEach(x=>{ if(!s.has(x)){s.add(x);o.push(x);} }); return o; }
+
+  // year-insensitive authority key — a case node named "Marbury v. Madison"
+  // and a citation "Marbury v. Madison, 5 U.S. 137 (1803)" must resolve to the same hub
+  function nk(k){ if(!k) return k; const p=k.split('|'); return p[0]==='c'?p.slice(0,3).join('|'):(p[0]==='a'?p.slice(0,2).join('|'):k); }
+  // several nodes can bear the same authority name ("Marbury v. Madison" appears as a
+  // doctrine note, an era note, and the landmark case). Reliance should converge on the
+  // canonical authority node — the landmark case (c-*) or the clause (am*/art*/const/bor).
+  function pickAuth(ids,self){ let best=null,br=99; for(const id of ids){ if(id===self)continue;
+    const r=/^c-/.test(id)?0:/^(am\d+|art\d+)$/.test(id)?1:(id==='const'||id==='bor')?2:5; if(r<br){br=r;best=id;} } return best; }
+  function buildGraph(){
+    if(RELIES) return;
+    RELIES={}; RELIED={}; AUTH={}; TOKENS={}; KEYNODE={}; ALIAS={}; TRUNK={};
+    for(let i=1;i<=27;i++){ const id='am'+i; if(byId[id]){ const k=nk(PRECW.keyOf('U.S. Const. amend. '+roman(i))); if(k) ALIAS[k]=id; } }
+    for(let i=1;i<=7;i++){ const id='art'+i; if(byId[id]){ const k=nk(PRECW.keyOf('U.S. Const. art. '+roman(i))); if(k) ALIAS[k]=id; } }
+    Object.values(byId).forEach(rec=>{ const n=rec.node; if(String(n.id).indexOf('lens:')===0) return;
+      const isAuth=/^(am\d+|art\d+|c-|bor|const|pre-|d-)/.test(n.id) || n.kind==='constitution' || n.kind==='rights';
+      const k=nk(PRECW.keyOf(n.name));
+      if(k && (k[0]==='c' || isAuth)){ (KEYNODE[k]=KEYNODE[k]||[]).push(n.id); }
+      toks(n.name).forEach(t=>{ (TOKENS[t]=TOKENS[t]||[]).push(n.id); });
+    });
+    Object.values(byId).forEach(rec=>{ const n=rec.node; if(String(n.id).indexOf('lens:')===0) return; const outs=[];
+      (n.cites||[]).forEach(c=>{ const k=nk(PRECW.keyOf(c)); if(!k)return; let to=null;
+        if(ALIAS[k]&&byId[ALIAS[k]]) to=ALIAS[k];
+        else if(KEYNODE[k]&&KEYNODE[k].length) to=pickAuth(KEYNODE[k],n.id);
+        else { if(!AUTH[k])AUTH[k]={key:k,name:c,kind:/\bv\.?\b/i.test(c)?'doctrine':'authority'}; to='auth:'+k; }
+        if(to && to!==n.id && outs.indexOf(to)<0) outs.push(to);
+      });
+      RELIES[n.id]=outs; outs.forEach(t=>{ if(String(t).indexOf('auth:')===0)return; (RELIED[t]=RELIED[t]||[]).push(n.id); });
+    });
+  }
+  function kin(id){ const n=byId[id].node, myT=trunkOf(id), seen=new Set([id]), out=[];
+    toks(n.name).forEach(t=>{ (TOKENS[t]||[]).forEach(oid=>{ if(seen.has(oid))return; seen.add(oid); if(trunkOf(oid)!==myT) out.push(oid); }); });
+    return out;
+  }
+  function kindOf(id){ if(String(id).indexOf('auth:')===0){ const a=AUTH[id.slice(5)]; return a?a.kind:'authority'; } return byId[id]?byId[id].node.kind:'doctrine'; }
+  function order(ids){ const pr=PRIORITY[st.persp]||PRIORITY.all;
+    return ids.map((id,i)=>({id,i,r:pr.indexOf(kindOf(id))})).sort((a,b)=>{ const ra=a.r<0?99:a.r, rb=b.r<0?99:b.r; return ra-rb||a.i-b.i; }).map(x=>x.id);
+  }
+
+  let SEQ=0; const reg=[];
+  function synthFrom(id, ref, jump){
+    let base;
+    if(String(id).indexOf('auth:')===0){ const a=AUTH[id.slice(5)]||{name:id,kind:'authority'};
+      base={kind:a.kind||'authority', name:a.name, summary:'An external authority the branches above rely on — a statute, rule, or source treated as binding. It has no node of its own in the map.', detail:'', force:'', enforce:'', history:'', cites:[]};
+    } else { const n=byId[id].node;
+      base={kind:n.kind, name:n.name, summary:n.summary||'', detail:n.detail||'', force:n.force||'', enforce:n.enforce||'', history:n.history||'', cites:n.cites||[]};
+    }
+    return {id:'lens:'+(SEQ++), kind:base.kind,
+      name: ref?('⤴ '+base.name):base.name,
+      summary: ref?('Converges here — this subject was already expanded earlier in the view. '+(base.summary||'')):base.summary,
+      detail:base.detail, force:base.force, enforce:base.enforce, history:base.history, cites:base.cites,
+      _real: (String(id).indexOf('auth:')===0)?null:id, _ref:!!ref, _jump:jump||null, children:[] };
+  }
+  function moreLeaf(k){ return {id:'lens:'+(SEQ++), kind:'doctrine', name:'⋯ '+k+' more', summary:'More related items, not expanded here to keep the view legible. Open this subject in the full map to see them all.', detail:'',force:'',enforce:'',history:'',cites:[], _real:null,_ref:false,_jump:null, children:[]}; }
+
+  function build(){
+    buildGraph(); SEQ=0; reg.length=0;
+    const placed=new Map(); let count=0, conv=0;
+    const maxD=st.dir==='apply'?D_APPLY:D_FOUND;
+    function expand(realId, depth, parent){
+      const s=synthFrom(realId,false,null); count++;
+      reg.push({synth:s,parent:parent,depth:depth});
+      const isAuth=String(realId).indexOf('auth:')===0;
+      if(!isAuth) placed.set(realId,s.id);
+      if(isAuth || depth>=maxD || count>=MAXN) return s;
+      let cands;
+      const kids=(byId[realId].node.children||[]).map(c=>c.id);
+      const rel=st.dir==='apply'?(RELIED[realId]||[]):(RELIES[realId]||[]);
+      if(depth===0) cands=uniq([...kids, ...kin(realId), ...rel]);
+      else if(st.dir==='apply') cands=uniq(rel);
+      else cands=uniq([...kids, ...rel]);
+      cands=order(cands.filter(c=>c!==realId));
+      let shown=0;
+      for(const cid of cands){
+        if(shown>=CAP){ const ml=moreLeaf(cands.length-shown); reg.push({synth:ml,parent:s,depth:depth+1}); s.children.push(ml); break; }
+        if(String(cid).indexOf('auth:')!==0 && placed.has(cid)){ const rl=synthFrom(cid,true,placed.get(cid)); reg.push({synth:rl,parent:s,depth:depth+1}); s.children.push(rl); conv++; shown++; continue; }
+        s.children.push(expand(cid, depth+1, s)); shown++;
+        if(count>=MAXN) break;
+      }
+      return s;
+    }
+    const root=expand(st.rootId,0,null);
+    return {root,count,conv};
+  }
+
+  function clearLensIds(){ Object.keys(byId).forEach(k=>{ if(k.indexOf('lens:')===0) delete byId[k]; }); }
+
+  function activate(){
+    if(!st.rootId || !byId[st.rootId] || String(st.rootId).indexOf('lens:')===0){ pick.focus(); return; }
+    buildGraph();
+    if(viewRoot!=='root') exitIsolate();
+    if(searchActive){ searchActive=false; hiMatch.clear(); hiPath.clear(); searchBase=null; if(searchEl){ searchEl.value=''; document.getElementById('scount').textContent=''; srBox.classList.remove('open'); srBox.innerHTML=''; } }
+    { const ib=document.getElementById('impactBar'); if(ib) ib.classList.remove('show'); }
+    clearLensIds();
+    const {root,count,conv}=build();
+    collapsed=new Set();
+    reg.forEach(({synth,parent,depth})=>{ byId[synth.id]={node:synth, parent:parent}; if(depth>=2 && synth.children.length) collapsed.add(synth.id); });
+    st.active=true; viewRoot=root.id; selectedId=null; kbdId=root.id;
+    render(); fit(); openPanel(root.id);
+    const dirTxt=st.dir==='apply'?'↑ what rests on it':'↓ its foundations';
+    const pLbl=(perspSel.options[perspSel.selectedIndex]?perspSel.options[perspSel.selectedIndex].text:st.persp).split('—')[0].trim();
+    barTxt.innerHTML='Lens on <b>'+escapeHtml(byId[st.rootId].node.name)+'</b> · '+dirTxt+' · '+escapeHtml(pLbl)+' — <b>'+count+'</b> node'+(count!==1?'s':'')+(conv?(' · '+conv+' convergence'+(conv!==1?'s':'')):'');
+    bar.classList.add('show'); lpanel.classList.remove('open'); exitBtn.disabled=false;
+  }
+  function exit(){ lpanel.classList.remove('open');
+    if(!st.active) return;
+    st.active=false; clearLensIds(); viewRoot='root'; selectedId=null; kbdId=null;
+    bar.classList.remove('show'); exitBtn.disabled=true;
+    document.getElementById('panel').classList.remove('open');
+    document.getElementById('footbar').classList.remove('shift');
+    document.getElementById('panelTab').classList.remove('show');
+    render(); fit();
+  }
+
+  function renderPicks(q){
+    const scored=[];
+    Object.values(byId).forEach(r=>{ if(r.node.id.indexOf('lens:')===0)return; const s=scoreNode(r.node,q); if(s>0) scored.push({id:r.node.id,s}); });
+    scored.sort((a,b)=>b.s-a.s || byId[a.id].node.name.length-byId[b.id].node.name.length);
+    results.innerHTML = scored.length ? scored.slice(0,40).map(m=>{ const n=byId[m.id].node;
+      return '<button class="lz-r'+(m.id===chosen?' on':'')+'" data-id="'+m.id+'"><span>'+escapeHtml(n.name)+'</span><small>'+escapeHtml(crumbOf(m.id)||'—')+'</small></button>'; }).join('')
+      : '<div class="lz-lbl" style="padding:4px 8px">No subjects match — try a broader word.</div>';
+  }
+  function setChosen(id){ chosen=id; st.rootId=id; if(byId[id]) pick.value=byId[id].node.name; }
+
+  document.getElementById('btnLens').addEventListener('click',()=>{
+    if(lpanel.classList.contains('open')){ lpanel.classList.remove('open'); return; }
+    const pp=document.getElementById('precPanel'); if(pp) pp.classList.remove('open');
+    if(!chosen){ let seed=selectedId; if(seed&&byId[seed]&&byId[seed].node._real) seed=byId[seed].node._real;
+      if(!seed||!byId[seed]||String(seed).indexOf('lens:')===0) seed='const'; setChosen(seed); }
+    renderPicks(pick.value.trim().toLowerCase());
+    lpanel.classList.add('open'); pick.focus(); if(pick.select)pick.select();
+  });
+  document.getElementById('lensClose').addEventListener('click',()=>lpanel.classList.remove('open'));
+  pick.addEventListener('input',()=>renderPicks(pick.value.trim().toLowerCase()));
+  pick.addEventListener('focus',()=>renderPicks(pick.value.trim().toLowerCase()));
+  pick.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const f=results.querySelector('[data-id]'); if(f){ setChosen(f.getAttribute('data-id')); activate(); } } });
+  results.addEventListener('click',e=>{ const b=e.target.closest('[data-id]'); if(!b)return; setChosen(b.getAttribute('data-id')); renderPicks(pick.value.trim().toLowerCase()); });
+  lpanel.querySelectorAll('.lz-dir button').forEach(b=>b.addEventListener('click',()=>{ st.dir=b.getAttribute('data-dir');
+    lpanel.querySelectorAll('.lz-dir button').forEach(x=>x.classList.toggle('on',x===b)); if(st.active) activate(); }));
+  perspSel.addEventListener('change',()=>{ st.persp=perspSel.value; if(st.active) activate(); });
+  document.getElementById('lensBuild').addEventListener('click',activate);
+  exitBtn.addEventListener('click',exit);
+  document.getElementById('lensBarExit').addEventListener('click',exit);
+
+  function seed(id){ let real=id; if(byId[id]&&byId[id].node._real) real=byId[id].node._real;
+    if(!byId[real]||String(real).indexOf('lens:')===0) return;
+    const pp=document.getElementById('precPanel'); if(pp) pp.classList.remove('open');
+    setChosen(real); perspSel.value=st.persp; activate();
+  }
+  return { active:()=>st.active, exit, seed };
 })();
 /* disclaimer modal */
 (function(){ const d=document.getElementById('disc'); if(!d) return;
