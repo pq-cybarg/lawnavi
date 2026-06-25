@@ -136,7 +136,7 @@
     justify-content:center;padding:0 3px;font-weight:700;}
 
   /* constitution cornerstone styling */
-  .node.kind-root{width:250px;background:radial-gradient(120% 140% at 30% 0%,#1b3358,#0c1f3b);
+  .node.kind-root{background:radial-gradient(120% 140% at 30% 0%,#1b3358,#0c1f3b);
     border-color:var(--gold);border-left-color:var(--gold);}
   .node.kind-root .title{font-family:"Spectral",serif;font-size:18px;font-weight:600;color:var(--parchment);}
   .node.kind-constitution{background:linear-gradient(180deg,#1a2c46,#10233e);}
@@ -2768,10 +2768,10 @@ const DATA = {
    ============================================================ */
 const KIND_VAR = {root:'--k-root',constitution:'--k-const',rights:'--k-rights',federal:'--k-federal',
   state:'--k-state',local:'--k-local',territory:'--k-territory',tribal:'--k-tribal',
-  special:'--k-special',doctrine:'--k-doctrine',everyday:'--k-everyday',flux:'--k-flux',procedure:'--k-procedure',exploit:'--k-exploit'};
+  special:'--k-special',doctrine:'--k-doctrine',everyday:'--k-everyday',flux:'--k-flux',procedure:'--k-procedure',exploit:'--k-exploit',case:'--k-doctrine',counter:'--k-exploit'};
 const KIND_LABEL = {root:'The Map',constitution:'Constitution',rights:'Rights / Amendment',federal:'Federal Law',
   state:'State Law',local:'Local Law',territory:'Territory / D.C.',tribal:'Tribal Law',
-  special:'Outside the States',doctrine:'Doctrine',everyday:'Everyday / Process',flux:'In Flux / Contested',procedure:'Procedure',exploit:'Exploit / Tactic'};
+  special:'Outside the States',doctrine:'Doctrine',everyday:'Everyday / Process',flux:'In Flux / Contested',procedure:'Procedure',exploit:'Exploit / Tactic',case:'Landmark Case',counter:'Counter / Defense'};
 
 let NODE_W = 234, H_GAP = 96, V_GAP = 16, RING = 300; const PAD = 80, SPIN = 0.7;
 function sizeForViewport(){ const sm=(typeof window!=='undefined'&&window.innerWidth<=760); const w=sm?188:234; const ch=(w!==NODE_W);
@@ -2964,6 +2964,7 @@ function onNodeKey(e,id){
 /* ---- anchored collapse/expand: keep the toggled node fixed on screen ---- */
 function centerScreen(v){ return {x:tx+v.cx*scale, y:ty+v.cy*scale}; }
 function toggle(id){
+  if(animating) return;
   const prev=curVisible.find(v=>v.node.id===id);
   const before=prev?centerScreen(prev):null;
   if(collapsed.has(id))collapsed.delete(id); else collapsed.add(id);
@@ -2992,11 +2993,11 @@ function setMode(newMode){
       let da=a1-a0; while(da>Math.PI)da-=2*Math.PI; while(da<-Math.PI)da+=2*Math.PI;
       const r=r0+(r1-r0)*e, a=a0+da*e+swing;
       v.cx=pivot.x+r*Math.cos(a); v.cy=pivot.y+r*Math.sin(a);
-      const el=nodeEls[v.node.id]; el.style.left=(v.cx-NODE_W/2)+'px'; el.style.top=(v.cy-v.h/2)+'px';
+      const el=nodeEls[v.node.id]; if(!el) return; el.style.left=(v.cx-NODE_W/2)+'px'; el.style.top=(v.cy-v.h/2)+'px';
     });
     drawLinks(visible);
     if(t<1) requestAnimationFrame(frame);
-    else { visible.forEach(v=>nodeEls[v.node.id].classList.remove('anim')); animating=false; render(); }
+    else { visible.forEach(v=>{ const el=nodeEls[v.node.id]; if(el) el.classList.remove('anim'); }); animating=false; render(); }
   })(t0);
 }
 
@@ -3037,6 +3038,7 @@ viewport.addEventListener('touchmove',e=>{
   tx=stx+(t.clientX-sx);ty=sty+(t.clientY-sy);clampPan();applyTransform();},{passive:true});
 viewport.addEventListener('touchend',e=>{
   if(e.touches.length<2) pinch=null;
+  if(e.touches.length===1){ const t=e.touches[0]; dragging=true; sx=t.clientX; sy=t.clientY; stx=tx; sty=ty; }
   if(e.touches.length===0){ dragging=false;
     const ch=e.changedTouches&&e.changedTouches[0]; if(!ch||(e.target.closest&&e.target.closest('.node'))) return;
     const now=Date.now();
@@ -3081,7 +3083,7 @@ function collapseLevel(){
 
 /* ---- detail panel ---- */
 const panel=document.getElementById('panel');
-function escapeHtml(s){ return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function metaBlock(cls,label,txt){ return txt?('<div class="meta '+cls+'"><div class="lbl">'+label+'</div><p>'+txt+'</p></div>'):''; }
 function expandTo(id){ let p=byId[id]&&byId[id].parent; while(p){ collapsed.delete(p.id); p=byId[p.id]?byId[p.id].parent:null; } }
 /* cross-references: make "See 'X'" mentions and concept stubs jump to the canonical branch */
@@ -3133,7 +3135,7 @@ function openPanel(id){
   const pcr=document.getElementById('pcrumb');
   pcr.innerHTML=path.slice(0,-1).map(p=>'<span class="xref" data-go="'+p.id+'">'+escapeHtml(p.name)+'</span>').join(' › ');
   pcr.querySelectorAll('[data-go]').forEach(a=>a.addEventListener('click',()=>gotoNode(a.dataset.go)));
-  if(history.replaceState) history.replaceState(null,'','#'+encodeURIComponent(id));
+  if(history.replaceState && String(id).indexOf('lens:')!==0 && String(id).indexOf('auth:')!==0) history.replaceState(null,'','#'+encodeURIComponent(id));
   const kids=document.getElementById('pkids');
   if(n.children && n.children.length){
     kids.style.display='block';
@@ -3294,7 +3296,7 @@ sizeForViewport();
 render(); fit();
 function setHdr(){ const hh=document.querySelector('header'); if(hh) document.documentElement.style.setProperty('--hdr', hh.offsetHeight+'px'); }
 setHdr();
-window.addEventListener('resize',()=>{ setHdr(); if(sizeForViewport()) render(); applyTransform(); });
+window.addEventListener('resize',()=>{ setHdr(); if(sizeForViewport()) render(); clampPan(); applyTransform(); });
 if(window.ResizeObserver){ try{ new ResizeObserver(setHdr).observe(document.querySelector('header')); }catch(e){} }
 /* mobile: swipe the panel header down to dismiss the bottom sheet */
 (function(){ const p=document.getElementById('panel'); if(!p)return; const bar=p.querySelector('.pbar'); if(!bar)return; let y0=null,dy=0;
@@ -3642,8 +3644,17 @@ const TB = (function(){
   let AI=loadAI();
   let aiOutput='';
 
-  function blank(){ return {id:'th_'+Date.now().toString(36),title:'Untitled Theory',jurisdiction:'',posture:'',issue:'',conclusion:'',facts:[],claims:[],authorities:[],counters:[]}; }
-  function normalize(o){ ['facts','claims','authorities','counters'].forEach(k=>{ if(!Array.isArray(o[k]))o[k]=[]; }); o.title=o.title||'Imported Theory'; o.issue=o.issue||''; o.conclusion=o.conclusion||''; o.claims.forEach(c=>{ c.elements=c.elements||[]; c.elements.forEach(e=>{ e.authorities=e.authorities||[]; e.facts=e.facts||[]; }); }); return o; }
+  function blank(){ return {id:nid('th'),title:'Untitled Theory',jurisdiction:'',posture:'',issue:'',conclusion:'',facts:[],claims:[],authorities:[],counters:[]}; }
+  // imported ids are attacker-controlled and flow into HTML attributes — sanitize them
+  // (and remap every internal reference consistently) so a crafted file can't inject markup
+  function safeId(s){ s=String(s==null?'':s).replace(/[^A-Za-z0-9_:-]/g,''); return s||nid('x'); }
+  function reidTheory(t){ const map={}; const mp=o=>{ if(o==null)return o; if(!(o in map))map[o]=safeId(o); return map[o]; };
+    (t.facts||[]).forEach(f=>{ f.id=mp(f.id); });
+    (t.authorities||[]).forEach(a=>{ a.id=mp(a.id); if(a.nodeId!=null)a.nodeId=safeId(a.nodeId); });
+    (t.claims||[]).forEach(c=>{ c.id=mp(c.id); (c.elements||[]).forEach(e=>{ e.id=mp(e.id); e.authorities=(e.authorities||[]).map(mp); e.facts=(e.facts||[]).map(mp); if(e.subTheory!=null)e.subTheory=safeId(e.subTheory); }); });
+    (t.counters||[]).forEach(k=>{ k.id=mp(k.id); if(k.target!=null)k.target=mp(k.target); });
+    if(t.id!=null)t.id=safeId(t.id); return t; }
+  function normalize(o){ ['facts','claims','authorities','counters'].forEach(k=>{ if(!Array.isArray(o[k]))o[k]=[]; }); o.title=o.title||'Imported Theory'; o.issue=o.issue||''; o.conclusion=o.conclusion||''; o.claims.forEach(c=>{ c.elements=c.elements||[]; c.elements.forEach(e=>{ e.authorities=e.authorities||[]; e.facts=e.facts||[]; }); }); return reidTheory(o); }
   function loadLib(){ try{ if(localStorage.getItem(LIBENC) && !localStorage.getItem(LIB)){ encMode=true; locked=true; return [blank()]; } }catch(e){}
     let arr=[]; try{ arr=JSON.parse(localStorage.getItem(LIB)); }catch(e){}
     if(!Array.isArray(arr)||!arr.length){ let old=null; try{ old=JSON.parse(localStorage.getItem(OLD)); }catch(e){} arr=(old&&old.claims!==undefined)?[old]:[blank()]; }
@@ -3661,7 +3672,7 @@ const TB = (function(){
   function ub64(s){ return Uint8Array.from(atob(s),c=>c.charCodeAt(0)); }
   async function deriveKey(pass,salt){ const km=await crypto.subtle.importKey('raw',te.encode(pass),'PBKDF2',false,['deriveKey']); return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:210000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']); }
   async function encStore(){ try{ const iv=crypto.getRandomValues(new Uint8Array(12)); const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},cryptoKey,te.encode(JSON.stringify(lib))); localStorage.setItem(LIBENC,JSON.stringify({v:1,suite:'AES-256-GCM + PBKDF2-SHA-256',salt:b64(encSalt),iv:b64(iv),ct:b64(new Uint8Array(ct))})); localStorage.removeItem(LIB); }catch(e){ toast('Encrypt error: '+e.message); } }
-  async function secEncrypt(){ const p=prompt('Set a passphrase to encrypt your theories at rest (you’ll need it to reopen them — there is no recovery):'); if(!p) return; encSalt=crypto.getRandomValues(new Uint8Array(16)); cryptoKey=await deriveKey(p,encSalt); encMode=true; locked=false; await encStore(); toast('Library encrypted with AES-256-GCM.'); secInfo(); }
+  async function secEncrypt(){ if(locked){ toast('Unlock your existing encrypted library first (🔒 → Unlock) before re-encrypting — otherwise it would be overwritten with an empty one.'); return; } const p=prompt('Set a passphrase to encrypt your theories at rest (you’ll need it to reopen them — there is no recovery):'); if(!p) return; encSalt=crypto.getRandomValues(new Uint8Array(16)); cryptoKey=await deriveKey(p,encSalt); encMode=true; locked=false; await encStore(); toast('Library encrypted with AES-256-GCM.'); secInfo(); }
   async function secUnlock(){ let blob; try{ blob=JSON.parse(localStorage.getItem(LIBENC)); }catch(e){} if(!blob){ toast('No encrypted library found'); return; }
     const p=prompt('Enter passphrase to unlock your theories:'); if(!p) return;
     try{ encSalt=ub64(blob.salt); cryptoKey=await deriveKey(p,encSalt); const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:ub64(blob.iv)},cryptoKey,ub64(blob.ct)); lib=JSON.parse(tdc.decode(pt)).map(normalize); locked=false; encMode=true; let cur; try{cur=localStorage.getItem(CUR);}catch(e){} T=lib.find(x=>x.id===cur)||lib[0]; toast('Unlocked'); render(); }
@@ -3974,7 +3985,7 @@ const TB = (function(){
     if(act==='set-el-text'){ const el=findEl(id); if(el){ el.text=v; save(); } return; }
     if(act==='set-claim-name'){ const c=T.claims.find(x=>x.id===id); if(c){ c.name=v; save(); } return; }
     if(act==='set-counter-text'){ const c=T.counters.find(x=>x.id===id); if(c){ c.text=v; save(); } return; }
-    if(act==='set-ai-url'){ AI.url=v.trim(); AI.on=false; saveAI(); return; }
+    if(act==='set-ai-url'){ const v2=v.trim(); if(v2 && !isLocalHost(v2)){ toast('For privacy, the AI endpoint must be local (localhost / 127.x / 10.x / 192.168.x / 172.16–31.x / ::1 / *.local).'); return; } AI.url=v2; AI.on=false; saveAI(); return; }
     if(act==='set-ai-model'){ AI.model=v.trim(); saveAI(); return; }
   });
   root.addEventListener('change',e=>{
@@ -4072,7 +4083,7 @@ const TB = (function(){
     return normalize(t);
   }
   document.getElementById('tbImport').addEventListener('change',function(){ const file=this.files&&this.files[0]; if(!file) return; const r=new FileReader();
-    r.onload=()=>{ try{ const o=JSON.parse(r.result); if(o&&o.claims) T=normalize(o); else if(o&&o.nodes) T=fromAIF(o); else throw new Error('Unrecognized file (need native JSON or AIF)'); save(); render(); toast('Imported “'+trunc(T.title,40)+'”'); }catch(err){ toast('Import failed: '+err.message); } this.value=''; };
+    r.onload=()=>{ try{ const o=JSON.parse(r.result); const hasWork=(T.claims&&T.claims.length)||(T.facts&&T.facts.length); if(hasWork && !confirm('Replace the current theory “'+trunc(T.title||'Untitled',30)+'” with the imported one? Duplicate it first if you want to keep it.')){ this.value=''; return; } if(o&&o.claims) T=normalize(o); else if(o&&o.nodes) T=fromAIF(o); else throw new Error('Unrecognized file (need native JSON or AIF)'); save(); render(); toast('Imported “'+trunc(T.title,40)+'”'); }catch(err){ toast('Import failed: '+err.message); } this.value=''; };
     r.readAsText(file); });
 
   /* ---- open / close / wiring ---- */
@@ -4092,12 +4103,18 @@ const TB = (function(){
 
   /* ---- BYO LOCAL AI — data is sent ONLY to the user's configured local endpoint; never to any cloud ---- */
   let aiBusy=false;
+  // privacy hard-rule: the AI endpoint MUST be on this machine / LAN — never a public host
+  function isLocalHost(url){ try{ const h=new URL(url).hostname.toLowerCase();
+      return h==='localhost'||h==='127.0.0.1'||h==='::1'||h==='[::1]'||h==='0.0.0.0'||h.endsWith('.local')
+        ||/^127\./.test(h)||/^10\./.test(h)||/^192\.168\./.test(h)||/^172\.(1[6-9]|2\d|3[01])\./.test(h); }
+    catch(e){ return false; } }
+  function ensureLocal(){ if(!isLocalHost(AI.url)) throw new Error('Blocked: the AI endpoint “'+AI.url+'” is not local. Your theory is never sent off this machine — point ✦ AI at localhost / 127.x / 10.x / 192.168.x / 172.16–31.x / ::1 / *.local.'); }
   function aiSetStatus(msg,col){ const e=document.getElementById('tbAiStatus'); if(e){ e.textContent=msg; e.style.color=col||'var(--ink-faint)'; } }
   async function aiDetect(){ aiSetStatus('detecting…');
-    try{ const u=AI.url.replace(/\/+$/,''); const r=await fetch(AI.provider==='ollama'?u+'/api/tags':u+'/v1/models'); if(!r.ok) throw new Error('HTTP '+r.status);
+    try{ ensureLocal(); const u=AI.url.replace(/\/+$/,''); const r=await fetch(AI.provider==='ollama'?u+'/api/tags':u+'/v1/models'); if(!r.ok) throw new Error('HTTP '+r.status);
       AI.on=true; saveAI(); aiSetStatus('● connected','#6FBF73'); toast('Connected to local model'); }
     catch(e){ AI.on=false; saveAI(); aiSetStatus('○ failed — running + CORS on?','#E2685C'); toast('Connect failed: '+e.message+' — for Ollama start it with OLLAMA_ORIGINS=*'); } }
-  async function callAI(messages){ const u=AI.url.replace(/\/+$/,'');
+  async function callAI(messages){ ensureLocal(); const u=AI.url.replace(/\/+$/,'');
     if(AI.provider==='ollama'){ const r=await fetch(u+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:AI.model,messages,stream:false})}); if(!r.ok) throw new Error('HTTP '+r.status); const d=await r.json(); return (d.message&&d.message.content)||''; }
     const r=await fetch(u+'/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:AI.model,messages,stream:false,temperature:0.3})}); if(!r.ok) throw new Error('HTTP '+r.status); const d=await r.json(); return (d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content)||''; }
   function theorySummary(){ return 'Issue: '+(T.issue||'(none)')+'\nJurisdiction: '+(T.jurisdiction||'(unspecified)')+'\nFacts:\n'+((T.facts.map((f,i)=>' '+(i+1)+'. '+f.text+(f.disputed?' [disputed]':'')).join('\n'))||' (none)')+'\nClaims:\n'+((T.claims.map(c=>' - '+c.name+' ('+c.kind+'); elements: '+(c.elements.map(e=>e.text).join('; ')||'(none)')).join('\n'))||' (none)'); }
