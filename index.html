@@ -556,7 +556,7 @@
       <button class="tool" id="btnFit" title="Fit to screen (F)">Fit</button>
       <button class="tool" id="btnExpandLvl" title="Expand one level — breadth-first (key ])">＋ Level</button>
       <button class="tool" id="btnCollapseLvl" title="Collapse one level (key [)">－ Level</button>
-      <button class="tool" id="btnExpand">Expand all</button>
+      <button class="tool" id="btnExpand" title="Expand breadth-first to fill the screen — deep/large branches stay as clickable “+N” cluster bubbles so it never piles up">⤢ Expand to fit</button>
       <button class="tool" id="btnCollapse">Collapse</button>
     </div>
   </div>
@@ -2985,7 +2985,7 @@ function forceAvoid(vis){
    polish cleans the small-angle approximation. */
 function balloonLayout(vis){
   if(!vis.length) return;
-  const M=14, GAP=NODE_W*0.28;
+  const M=16, GAP=NODE_W*0.4;
   const nodeR=v=>Math.hypot(NODE_W,(v.h||40))/2+M;
   (function measure(v){
     const kids=v.children||[];
@@ -3202,6 +3202,22 @@ function focusNode(id,targetScale){
   applyTransform();
 }
 /* breadth-first level stepping: reveal/peel exactly one ring of the tree per call */
+/* semantic zoom: expand breadth-first only until a node BUDGET is reached, so the screen
+   never piles up. Overflowing subtrees stay collapsed as labeled "+N" cluster bubbles you
+   click to drill into (one level deeper, re-clustering below). Mode-agnostic. */
+function visBudget(){ const a=viewport.clientWidth*viewport.clientHeight; return Math.max(90, Math.min(320, Math.round(a/5200))); }
+function fitBudget(budget){
+  const rootNode=(byId[viewRoot]||byId['root']).node;
+  collapsed=new Set(); Object.values(byId).forEach(r=>{ if(r.node.children&&r.node.children.length) collapsed.add(r.node.id); });
+  let count=1; const q=[rootNode];
+  while(q.length){
+    const n=q.shift(), kids=n.children||[];
+    if(!kids.length) continue;
+    if(count+kids.length>budget) continue;        // expanding overflows the budget → leave it a cluster bubble
+    collapsed.delete(n.id); count+=kids.length;
+    for(const c of kids) if(c.children&&c.children.length) q.push(c);
+  }
+}
 function expandLevel(){
   const front=curVisible.filter(v=> v.node.children && v.node.children.length && collapsed.has(v.node.id));
   if(!front.length) return;
@@ -3399,7 +3415,7 @@ document.addEventListener('click',e=>{ if(!e.target.closest('.search')) srBox.cl
 /* ---- toolbar ---- */
 document.getElementById('btnExpandLvl').addEventListener('click',expandLevel);
 document.getElementById('btnCollapseLvl').addEventListener('click',collapseLevel);
-document.getElementById('btnExpand').addEventListener('click',()=>{ collapsed.clear(); render(); fit(); });
+document.getElementById('btnExpand').addEventListener('click',()=>{ fitBudget(visBudget()); render(); fit(); });
 document.getElementById('btnCollapse').addEventListener('click',()=>{
   collapsed=new Set(); Object.values(byId).forEach(r=>{ if(r.node.id!==viewRoot && r.node.children) collapsed.add(r.node.id); });
   render(); fit();
