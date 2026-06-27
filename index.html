@@ -113,8 +113,8 @@
   #viewport.dragging{cursor:grabbing;}
   #world{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform;}
   #links{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;}
-  #links path{fill:none;stroke:var(--line);stroke-width:1.4;transition:stroke .2s,opacity .2s;}
-  #links path.lit{stroke:var(--line-bright);stroke-width:1.8;}
+  #links path{fill:none;stroke:var(--line);stroke-width:var(--lw,1.4);transition:stroke .2s,opacity .2s;}
+  #links path.lit{stroke:var(--line-bright);stroke-width:calc(var(--lw,1.4)*1.3);}
 
   /* ---- nodes ---- */
   .node{position:absolute;width:var(--node-w,234px);background:linear-gradient(180deg,var(--panel),var(--bg-2));
@@ -219,7 +219,7 @@
     font-size:11px;font-family:inherit;cursor:pointer;font-weight:600;}
   /* search / connection highlighting */
   .node.path{box-shadow:0 0 0 2px rgba(85,194,194,0.55),0 8px 24px rgba(0,0,0,0.5);}
-  #links path.path{stroke:var(--k-special);stroke-width:2.2;opacity:1;}
+  #links path.path{stroke:var(--k-special);stroke-width:calc(var(--lw,1.4)*1.6);opacity:1;}
   #links path.fade{opacity:.10;}
   .node.anim{transition:none!important;}
   /* cross-reference links inside the panel */
@@ -549,7 +549,6 @@
       <button class="tool" id="btnPrec" title="See what relies on a precedent / clause, and the overturn blast radius">⟐ Precedents</button>
       <button class="tool" id="btnLens" title="Re-root the map on any subject and invert the hierarchy — drill down to the foundations it rests on, or roll up to everything that rests on it, through whichever perspective you choose">🧭 Lens</button>
       <button class="tool" id="btnMode">◐ Radial view</button>
-      <button class="tool" id="btnOrganic" title="Organic view — nodes self-organize by attraction (edges) and avoidance (repulsion)">✦ Organic</button>
       <button class="tool" id="btnSpread" title="Fill empty space: grow boxes into the free room around them (organic/radial), capped at the root box size">⊙ Fill</button>
       <button class="tool" id="btnZout" title="Zoom out (−)">&minus;</button>
       <button class="tool" id="btnZin" title="Zoom in (+)">+</button>
@@ -2862,7 +2861,8 @@ const ZMIN=0.12, ZMAX=2.6;
 const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 
 function countDesc(n){ let c=0; (function w(x){ (x.children||[]).forEach(k=>{c++;w(k);}); })(n); return c; }
-function applyTransform(){ world.style.transform='translate('+tx+'px,'+ty+'px) scale('+scale+')'; }
+function applyTransform(){ world.style.transform='translate('+tx+'px,'+ty+'px) scale('+scale+')';
+  world.style.setProperty('--lw', Math.max(1.2, 1.5/scale).toFixed(2)); }   // links keep a min SCREEN thickness at any zoom
 /* keep at least part of the content within the viewport after pan/zoom */
 function clampPan(){ const bb=world._bbox; if(!bb)return; const vw=viewport.clientWidth, vh=viewport.clientHeight;
   const m=Math.min(120, vw*0.4, vh*0.4);
@@ -3046,6 +3046,9 @@ function forceOrganic(vis){ if(vis.length<2) return; balloonLayout(vis); }   // 
 /* grow each box into its free space so the map fills out (outer/sparse bubbles get largest), capped
    at MAX (≈ the root box). Provably overlap-free: a box's circumscribed circle grows to at most
    ~half the distance to its NEAREST neighbour, so any two grown circles still can't reach each other. */
+/* minimum box scale by depth in the BLOOM — bigger toward the centre so central boxes are readable/
+   tappable; the balloon reserves space for it. Tree keeps fixed columns (scale 1). */
+function baseScale(v){ if(mode==='tree') return 1; const d=v.depth||0; return Math.max(1.2, 2.0-0.18*d); }
 function sizeToFill(vis){
   if(vis.length<2) return;
   const MAX=2.0, cell=Math.max(80,NODE_W*MAX), K=(x,y)=>x+'|'+y, g=new Map();
@@ -3053,10 +3056,10 @@ function sizeToFill(vis){
   vis.forEach(a=>{ const ah=Math.hypot(NODE_W,a.h||40)/2; let nearest=1e9;
     for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){ const arr=g.get(K(a._ix+dx,a._iy+dy)); if(!arr)continue;
       for(const b of arr){ if(b===a)continue; const d=Math.hypot(a.cx-b.cx,a.cy-b.cy); if(d<nearest)nearest=d; } }
-    a._scale = Math.max(1, Math.min(MAX, nearest/(2*ah)*0.96)); });
+    a._scale = Math.max(baseScale(a), Math.min(MAX, nearest/(2*ah)*0.96)); });  // never below the depth minimum
 }
 function computeLayout(visible){
-  visible.forEach(v=>{ v._scale=1; });                    // base size for layout; sizeToFill sets the real scale
+  visible.forEach(v=>{ v._scale=baseScale(v); });         // depth-min size so the balloon reserves room; sizeToFill grows further
   if(mode==='tree'){
     let cursor=0;
     (function place(v){
@@ -3070,8 +3073,9 @@ function computeLayout(visible){
   if(spread) sizeToFill(visible);                         // ⊙ Fill toggle: grow boxes into free space (overlap-free)
   resolveOverlaps(visible);                               // belt-and-suspenders box guarantee (no-op when already clean)
   let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
-  visible.forEach(v=>{ x0=Math.min(x0,v.cx-NODE_W/2); x1=Math.max(x1,v.cx+NODE_W/2);
-    y0=Math.min(y0,v.cy-v.h/2); y1=Math.max(y1,v.cy+v.h/2); });
+  visible.forEach(v=>{ const hw=effW(v)/2, hh=effH(v)/2;     // use the GROWN box size so Fit frames everything
+    x0=Math.min(x0,v.cx-hw); x1=Math.max(x1,v.cx+hw);
+    y0=Math.min(y0,v.cy-hh); y1=Math.max(y1,v.cy+hh); });
   const ox=PAD-x0, oy=PAD-y0;
   visible.forEach(v=>{ v.cx+=ox; v.cy+=oy; });
   world._bbox={x0:PAD,y0:PAD,x1:(x1-x0)+PAD,y1:(y1-y0)+PAD};
@@ -3200,9 +3204,8 @@ function toggle(id){
 
 /* ---- view-mode switch with a rotational transition (hierarchy <-> DAG) ---- */
 function updateModeBtns(){
-  const bm=document.getElementById('btnMode'); if(bm) bm.textContent=mode==='radial'?'◑ Tree view':'◐ Radial view';
-  const bo=document.getElementById('btnOrganic'); if(bo) bo.classList.toggle('on',mode==='force');
-  const bs=document.getElementById('btnSpread'); if(bs){ bs.classList.toggle('on',spread&&mode!=='force'); bs.style.opacity=mode==='force'?'.45':''; }
+  const bm=document.getElementById('btnMode'); if(bm) bm.textContent = mode==='tree' ? '✦ Bloom view' : '◑ Tree view';
+  const bs=document.getElementById('btnSpread'); if(bs) bs.classList.toggle('on',spread);
 }
 function setMode(newMode){
   if(animating||newMode===mode) return;
@@ -3516,8 +3519,7 @@ document.getElementById('btnCollapse').addEventListener('click',()=>{
   render(); fit();
 });
 document.getElementById('btnFit').addEventListener('click',fit);
-document.getElementById('btnMode').addEventListener('click',()=>setMode(mode==='tree'?'radial':'tree'));
-document.getElementById('btnOrganic').addEventListener('click',()=>setMode(mode==='force'?'tree':'force'));
+document.getElementById('btnMode').addEventListener('click',()=>setMode(mode==='tree'?'force':'tree'));
 document.getElementById('btnSpread').addEventListener('click',()=>{ spread=!spread; updateModeBtns(); render(); fit(); });
 updateModeBtns();
 document.getElementById('btnZin').addEventListener('click',()=>zoomBy(1.2));
@@ -3533,7 +3535,7 @@ window.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||document.getElementById('tb').classList.contains('open'))return;
   if(e.key==='+'||e.key==='=') zoomBy(1.15);
   else if(e.key==='-'||e.key==='_') zoomBy(1/1.15);
-  else if(e.key==='r'||e.key==='R') setMode(mode==='tree'?'radial':'tree');
+  else if(e.key==='r'||e.key==='R') setMode(mode==='tree'?'force':'tree');
   else if(e.key==='f'||e.key==='F') fit();
   else if(e.key===']') expandLevel();
   else if(e.key==='[') collapseLevel();
