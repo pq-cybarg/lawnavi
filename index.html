@@ -2996,17 +2996,20 @@ function balloonLayout(vis){
   (function wt(v,d){ maxD=Math.max(maxD,d); (byDepth[d]=byDepth[d]||[]).push(v);
     const k=v.children||[]; if(!k.length){ v._w=1; return 1; } let s=0; k.forEach(c=>s+=wt(c,d+1)); v._w=s; return s; })(root,0);
   const total=root._w||1;
-  // exact radii: r·span(v) ≥ box width (arc holds the box) AND ring gap ≥ node heights — no approximation
+  // Model each box by its CIRCUMSCRIBED CIRCLE (radius = half-diagonal) so the guarantees hold for ANY
+  // orientation of the axis-aligned box relative to the radius (a box near 0°/180° points its WIDTH
+  // radially, not its height — that bit us before). Two exact constraints, no approximation:
+  //   (a) angular: the circle fits in the node's sector  ⇒  r·sin(half) ≥ boxR  ⇒  r ≥ boxR/sin(half)
+  //   (b) radial : consecutive rings clear  ⇒  r[d] ≥ r[d-1] + boxR(d-1) + boxR(d) + gap
+  const boxR = v => Math.hypot(effW(v),effH(v))/2;
   const radius=[0];
   for(let d=1; d<=maxD; d++){
-    let rArc=0, hCur=0, hPrev=0;
-    byDepth[d].forEach(v=>{ const half=(v._w/total)*Math.PI;                 // half of this node's angular span
-      // the box's far CORNER must stay inside the sector: atan((effW/2+gap)/(r-effH/2)) ≤ half
-      //   ⇒ r ≥ effH/2 + (effW/2+gap)/tan(half).  Accounts for box width AND height (corner, not midpoint).
-      const need = half>=1.30 ? (effH(v)/2 + effW(v)/2 + gap) : (effH(v)/2 + (effW(v)/2+gap)/Math.tan(half));
-      rArc=Math.max(rArc, need); hCur=Math.max(hCur,effH(v)); });
-    (byDepth[d-1]||[]).forEach(v=>{ hPrev=Math.max(hPrev,effH(v)); });
-    radius[d]=Math.max(rArc, radius[d-1]+(hPrev+hCur)/2+gap);
+    let rArc=0, brCur=0, brPrev=0;
+    byDepth[d].forEach(v=>{ const half=(v._w/total)*Math.PI, br=boxR(v);
+      const need = half>=Math.PI/2 ? br : br/Math.sin(half);
+      rArc=Math.max(rArc, need+gap); brCur=Math.max(brCur, br); });
+    (byDepth[d-1]||[]).forEach(v=>{ brPrev=Math.max(brPrev, boxR(v)); });
+    radius[d]=Math.max(rArc, radius[d-1]+brPrev+brCur+gap);
   }
   (function place(v,depth,a0,a1){
     const a=(a0+a1)/2, r=radius[depth]||0;
