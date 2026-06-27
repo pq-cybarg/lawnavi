@@ -2921,7 +2921,7 @@ function measure(visible){
   });
 }
 /* ---- flocking / avoidance forces: grid-bucketed AABB separation + cohesion ---- */
-const _SEPCAP=22;          // cap neighbours scanned per cell — bounds worst-case clustering cost
+const _SEPCAP=28;          // cap neighbours scanned per cell — bounds worst-case clustering cost
 function _sepStep(vis,gapX,gapY,strength){
   const cell=Math.max(60,NODE_W+gapX), g=new Map(), K=(x,y)=>x+'|'+y;
   vis.forEach(v=>{ v._ix=Math.round(v.cx/cell); v._iy=Math.round(v.cy/cell); const k=K(v._ix,v._iy); const a=g.get(k); if(a)a.push(v); else g.set(k,[v]); v._dx=0; v._dy=0; });
@@ -2942,31 +2942,57 @@ function _sepStep(vis,gapX,gapY,strength){
   let moved=0; vis.forEach(v=>{ v.cx+=v._dx; v.cy+=v._dy; moved+=Math.abs(v._dx)+Math.abs(v._dy); });
   return moved;
 }
+/* push nodes off the link LINES they sit on (node-vs-edge avoidance) */
+function _edgeStep(vis,clear,strength){
+  const cell=Math.max(80,NODE_W+40), g=new Map(), K=(x,y)=>x+'|'+y;
+  vis.forEach(v=>{ v._dx=0; v._dy=0; const ix=Math.round(v.cx/cell), iy=Math.round(v.cy/cell); const k=K(ix,iy); const a=g.get(k); if(a)a.push(v); else g.set(k,[v]); });
+  const rad=NODE_W/2+clear;
+  vis.forEach(v=>{ const p=v.parent; if(!p) return;
+    const x1=p.cx,y1=p.cy,x2=v.cx,y2=v.cy;
+    const ci0=Math.floor((Math.min(x1,x2)-rad)/cell), ci1=Math.floor((Math.max(x1,x2)+rad)/cell);
+    const cj0=Math.floor((Math.min(y1,y2)-rad)/cell), cj1=Math.floor((Math.max(y1,y2)+rad)/cell);
+    if((ci1-ci0+1)*(cj1-cj0+1)>500) return;               // skip very long edges (e.g. radial spokes)
+    const dxs=x2-x1, dys=y2-y1, L2=dxs*dxs+dys*dys||1;
+    for(let ci=ci0;ci<=ci1;ci++)for(let cj=cj0;cj<=cj1;cj++){
+      const arr=g.get(K(ci,cj)); if(!arr)continue;
+      const lim=Math.min(arr.length,_SEPCAP);
+      for(let i=0;i<lim;i++){ const nn=arr[i]; if(nn===v||nn===p)continue;
+        let s=((nn.cx-x1)*dxs+(nn.cy-y1)*dys)/L2; s=s<0?0:s>1?1:s;
+        let nx=nn.cx-(x1+s*dxs), ny=nn.cy-(y1+s*dys), d=Math.hypot(nx,ny);
+        if(d<rad){ if(d<0.01){ nx=dys; ny=-dxs; d=Math.hypot(nx,ny)||1; }   // node sits on the line
+          const push=(rad-d)*strength/d; nn._dx+=nx*push; nn._dy+=ny*push; }
+      }
+    }
+  });
+  let moved=0; vis.forEach(v=>{ v.cx+=v._dx; v.cy+=v._dy; moved+=Math.abs(v._dx)+Math.abs(v._dy); });
+  return moved;
+}
 function forceAvoid(vis){
   if(vis.length<2) return;
   vis.forEach(v=>{ v._sx=v.cx; v._sy=v.cy; });            // tidy seed = anchor for compactness
-  const iters=vis.length>1200?14:vis.length>500?20:30;
+  const iters=vis.length>1200?16:vis.length>500?24:34;
   for(let it=0;it<iters;it++){
-    const moved=_sepStep(vis,16,10,0.32);
-    vis.forEach(v=>{ v.cx+=(v._sx-v.cx)*0.05; v.cy+=(v._sy-v.cy)*0.05; });  // cohesion toward tidy spot
+    const moved=_sepStep(vis,22,14,0.4);                  // stronger node separation
+    vis.forEach(v=>{ v.cx+=(v._sx-v.cx)*0.04; v.cy+=(v._sy-v.cy)*0.04; });  // light cohesion toward tidy spot
     if(moved<vis.length*0.4) break;                       // settled (e.g. tree had no overlaps)
   }
-  for(let k=0;k<10;k++) if(_sepStep(vis,16,10,0.5)<vis.length*0.15) break;     // polish: clear residual overlaps
+  for(let k=0;k<24;k++) if(_sepStep(vis,22,14,0.6)<vis.length*0.05) break;     // polish: drive residual overlaps to ~0
 }
 function forceOrganic(vis){
   if(vis.length<2) return;
-  const n=vis.length, iters=n>1500?26:n>700?48:n>300?80:130, L=NODE_W*1.3;
+  const n=vis.length, iters=n>1500?34:n>700?58:n>300?95:160, L=NODE_W*1.85;
   for(let it=0;it<iters;it++){
     const t=it/iters;
-    vis.forEach(v=>{ const p=v.parent; if(!p)return;        // edge springs = cohesion
-      let dx=v.cx-p.cx, dy=v.cy-p.cy, d=Math.hypot(dx,dy)||0.01, f=(d-L)/d*0.08, fx=dx*f, fy=dy*f;
+    vis.forEach(v=>{ const p=v.parent; if(!p)return;        // edge springs = cohesion (gentle, so separation can win)
+      let dx=v.cx-p.cx, dy=v.cy-p.cy, d=Math.hypot(dx,dy)||0.01, f=(d-L)/d*0.05, fx=dx*f, fy=dy*f;
       v.cx-=fx; v.cy-=fy; p.cx+=fx*0.5; p.cy+=fy*0.5; });
-    _sepStep(vis,20,12,0.5);                               // separation = avoidance
+    _sepStep(vis,34,22,0.62);                              // strong node↔node separation, generous gaps
+    _edgeStep(vis,NODE_W*0.4,0.62);                        // keep nodes well off the link lines
     let mx=0,my=0; vis.forEach(v=>{mx+=v.cx;my+=v.cy;}); mx/=n; my/=n;
-    const grav=0.008*(1-t*0.6);                            // gravity = compactness
+    const grav=0.0035*(1-t*0.6);                           // light gravity = compactness without crushing
     vis.forEach(v=>{ v.cx+=(mx-v.cx)*grav; v.cy+=(my-v.cy)*grav; });
   }
-  for(let k=0;k<18;k++) if(_sepStep(vis,20,12,0.5)<vis.length*0.15) break;     // settle: clear residual overlaps
+  for(let k=0;k<40;k++){ const m=_sepStep(vis,34,22,0.62)+_edgeStep(vis,NODE_W*0.4,0.62); if(m<vis.length*0.05) break; }  // settle nodes & lines
 }
 function computeLayout(visible){
   if(mode==='radial'){
