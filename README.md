@@ -17,7 +17,7 @@ An interactive, plain-English map of United States law — federal, all 50 state
 
 ## Privacy
 
-The app runs **entirely in your browser**. Theories are stored locally (optionally encrypted with AES-256-GCM via WebCrypto). The optional AI features talk **only to a local model endpoint you configure** (Ollama / llama.cpp / LM Studio) — never a cloud. The optional sidecar (`lawnavi-local.mjs`) binds to `127.0.0.1` only and keeps all data on your machine. See the [sidecar docs](sidecar/) for the cryptographic suite (argon2id · AES-256-GCM · KMAC256 · SHA3-256 · ML-DSA-87 · ML-KEM-1024) and FIPS notes.
+The app runs **entirely in your browser** and makes **no external network requests at all** — even the fonts are self-hosted and inlined (base64 woff2), so opening the page contacts no third party and it works fully offline. Theories are stored locally (optionally encrypted with AES-256-GCM via WebCrypto). The optional AI features talk **only to a local model endpoint you configure** (Ollama / llama.cpp / LM Studio) — never a cloud, and the endpoint is validated to be loopback/LAN-only. The optional sidecar (`lawnavi-local.mjs`) binds to `127.0.0.1` only and keeps all data on your machine. See the [sidecar docs](sidecar/) for the cryptographic suite (argon2id · AES-256-GCM · KMAC256 · SHA3-256 · ML-DSA-87 · ML-KEM-1024) and FIPS notes.
 
 ## Run the sidecar (optional)
 
