@@ -550,7 +550,7 @@
       <button class="tool" id="btnLens" title="Re-root the map on any subject and invert the hierarchy — drill down to the foundations it rests on, or roll up to everything that rests on it, through whichever perspective you choose">🧭 Lens</button>
       <button class="tool" id="btnMode">◐ Radial view</button>
       <button class="tool" id="btnOrganic" title="Organic view — nodes self-organize by attraction (edges) and avoidance (repulsion)">✦ Organic</button>
-      <button class="tool" id="btnSpread" title="Flocking/avoidance: separate overlapping nodes while keeping the map compact">⊙ Spread</button>
+      <button class="tool" id="btnSpread" title="Fill empty space: grow boxes into the free room around them (organic/radial), capped at the root box size">⊙ Fill</button>
       <button class="tool" id="btnZout" title="Zoom out (−)">&minus;</button>
       <button class="tool" id="btnZin" title="Zoom in (+)">+</button>
       <button class="tool" id="btnFit" title="Fit to screen (F)">Fit</button>
@@ -2924,7 +2924,7 @@ function measure(visible){
 const _SEPCAP=28;          // cap neighbours scanned per cell — bounds worst-case clustering cost
 /* variable node size (organic only): shallower nodes are bigger (more room near the centre, and
    they're the important navigational anchors) → fills white space + readability, collision-aware */
-function nodeScale(v){ if(mode!=='force') return 1; const d=(v.depth||0); return Math.max(1.0, 1.4-0.14*d); }
+function nodeScale(v){ return v._scale||1; }   // set by sizeToFill (grow-to-fill); 1 during layout
 function effW(v){ return NODE_W*nodeScale(v); }
 function effH(v){ return (v.h||40)*nodeScale(v); }
 function _sepStep(vis,gapX,gapY,strength){
@@ -2991,7 +2991,7 @@ function forceAvoid(vis){
    child spoke can't enter a sibling's disjoint circle. */
 function balloonLayout(vis){
   if(!vis.length) return;
-  const root=vis[0], gap=NODE_W*0.45;
+  const root=vis[0], gap=NODE_W*0.33;
   const boxR = v => Math.hypot(effW(v),effH(v))/2;
   (function measure(v){
     const kids=v.children||[];
@@ -3043,25 +3043,32 @@ function resolveOverlaps(vis){
   }
 }
 function forceOrganic(vis){ if(vis.length<2) return; balloonLayout(vis); }   // overlap-free by construction
+/* grow each box into its free space so the map fills out (outer/sparse bubbles get largest), capped
+   at MAX (≈ the root box). Provably overlap-free: a box's circumscribed circle grows to at most
+   ~half the distance to its NEAREST neighbour, so any two grown circles still can't reach each other. */
+function sizeToFill(vis){
+  if(vis.length<2) return;
+  const MAX=2.0, cell=Math.max(80,NODE_W*MAX), K=(x,y)=>x+'|'+y, g=new Map();
+  vis.forEach(v=>{ v._ix=Math.round(v.cx/cell); v._iy=Math.round(v.cy/cell); const k=K(v._ix,v._iy); const a=g.get(k); if(a)a.push(v); else g.set(k,[v]); });
+  vis.forEach(a=>{ const ah=Math.hypot(NODE_W,a.h||40)/2; let nearest=1e9;
+    for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){ const arr=g.get(K(a._ix+dx,a._iy+dy)); if(!arr)continue;
+      for(const b of arr){ if(b===a)continue; const d=Math.hypot(a.cx-b.cx,a.cy-b.cy); if(d<nearest)nearest=d; } }
+    a._scale = Math.max(1, Math.min(MAX, nearest/(2*ah)*0.96)); });
+}
 function computeLayout(visible){
-  if(mode==='radial'){
-    let leaf=0; const leaves=visible.filter(v=>v.children.length===0).length||1;
-    (function ang(v){
-      if(v.children.length===0){ v._a=(leaf+0.5)/leaves*Math.PI*2; leaf++; }
-      else{ v.children.forEach(ang); v._a=(v.children[0]._a+v.children[v.children.length-1]._a)/2; }
-    })(visible[0]);
-    visible.forEach(v=>{ const r=v.depth*RING; v.cx=r*Math.sin(v._a); v.cy=-r*Math.cos(v._a); });
-  } else {
+  visible.forEach(v=>{ v._scale=1; });                    // base size for layout; sizeToFill sets the real scale
+  if(mode==='tree'){
     let cursor=0;
     (function place(v){
       v.cx=v.depth*(NODE_W+H_GAP)+NODE_W/2;
       if(v.children.length===0){ v.cy=cursor+v.h/2; cursor+=v.h+V_GAP; }
       else{ v.children.forEach(place); v.cy=(v.children[0].cy+v.children[v.children.length-1].cy)/2; }
     })(visible[0]);
+  } else {
+    balloonLayout(visible);                               // radial AND organic: compact clean balloon — no piles
   }
-  if(mode==='force') forceOrganic(visible);
-  else if(spread) forceAvoid(visible);
-  resolveOverlaps(visible);                                // hard guarantee: no two boxes overlap, any mode (no-op when already clean)
+  if(spread) sizeToFill(visible);                         // ⊙ Fill toggle: grow boxes into free space (overlap-free)
+  resolveOverlaps(visible);                               // belt-and-suspenders box guarantee (no-op when already clean)
   let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
   visible.forEach(v=>{ x0=Math.min(x0,v.cx-NODE_W/2); x1=Math.max(x1,v.cx+NODE_W/2);
     y0=Math.min(y0,v.cy-v.h/2); y1=Math.max(y1,v.cy+v.h/2); });
@@ -3079,14 +3086,35 @@ function _border(v,tx,ty){ const dx=tx-v.cx, dy=ty-v.cy; if(!dx&&!dy) return [v.
   const hw=NODE_W*nodeScale(v)/2, hh=(v.h||40)*nodeScale(v)/2;
   const t=Math.min(hw/(Math.abs(dx)||1e-9), hh/(Math.abs(dy)||1e-9));
   return [v.cx+dx*t, v.cy+dy*t]; }
+/* candidate connection ports = the 4 side-midpoints of a box */
+function _sides(v){ const hw=NODE_W*nodeScale(v)/2, hh=(v.h||40)*nodeScale(v)/2;
+  return [[v.cx+hw,v.cy],[v.cx-hw,v.cy],[v.cx,v.cy+hh],[v.cx,v.cy-hh]]; }
+/* penalty for a link segment passing CLOSE to other boxes (squeezing between them hurts readability) */
+function _linkPen(x1,y1,x2,y2,boxes,A,B){ let pen=0; const M=NODE_W*0.45;
+  const loX=Math.min(x1,x2)-M, hiX=Math.max(x1,x2)+M, loY=Math.min(y1,y2)-M, hiY=Math.max(y1,y2)+M;
+  const dx=x2-x1, dy=y2-y1, L2=dx*dx+dy*dy||1;
+  for(const n of boxes){ if(n===A||n===B||n.cx<loX||n.cx>hiX||n.cy<loY||n.cy>hiY) continue;
+    let t=((n.cx-x1)*dx+(n.cy-y1)*dy)/L2; t=t<0?0:t>1?1:t; const px=x1+t*dx, py=y1+t*dy;
+    const ox=(NODE_W*nodeScale(n)/2+M)-Math.abs(n.cx-px), oy=((n.h||40)*nodeScale(n)/2+M)-Math.abs(n.cy-py);
+    if(ox>0&&oy>0) pen += Math.min(ox,oy); }
+  return pen; }
+/* pick the (exit,entry) sides minimizing length + a heavy penalty for hugging other boxes →
+   an edge that would squeeze between boxes for the closest side falls back to the next-best side */
+function bestPorts(P,C,boxes){ const ps=_sides(P), cs=_sides(C); let best=null,bs=1e18;
+  for(let i=0;i<4;i++)for(let j=0;j<4;j++){ const e=ps[i],x=cs[j];
+    const sc=Math.hypot(e[0]-x[0],e[1]-x[1]) + 9*_linkPen(e[0],e[1],x[0],x[1],boxes,P,C);
+    if(sc<bs){ bs=sc; best=[e,x]; } }
+  return best; }
 function drawLinks(visible){
   let p='';
+  const scorePorts = (mode==='tree' && visible.length<=700);   // penalty-scored side selection (tree; capped for perf)
   visible.forEach(v=>v.children.forEach(c=>{
-    const a=_border(v,c.cx,c.cy), b=_border(c,v.cx,v.cy);   // border-to-border: nearest sides, shortest path
-    const x1=a[0],y1=a[1],x2=b[0],y2=b[1];
+    let x1,y1,x2,y2;
+    if(scorePorts){ const pr=bestPorts(v,c,visible); x1=pr[0][0];y1=pr[0][1];x2=pr[1][0];y2=pr[1][1]; }
+    else { const a=_border(v,c.cx,c.cy), b=_border(c,v.cx,v.cy); x1=a[0];y1=a[1];x2=b[0];y2=b[1]; }
     const d = mode==='tree'
       ? 'M'+x1+' '+y1+' C'+((x1+x2)/2)+' '+y1+' '+((x1+x2)/2)+' '+y2+' '+x2+' '+y2
-      : 'M'+x1+' '+y1+' L'+x2+' '+y2;                       // organic & radial: straight, short, exits the facing side
+      : 'M'+x1+' '+y1+' L'+x2+' '+y2;                       // organic & radial(balloon): straight, short, facing-side
     let cls=''; if(searchActive) cls=(hiPath.has(v.node.id)&&hiPath.has(c.node.id))?' class="path"':' class="fade"';
     p+='<path'+cls+' d="'+d+'"></path>';
   }));
