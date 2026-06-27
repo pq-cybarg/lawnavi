@@ -2922,15 +2922,20 @@ function measure(visible){
 }
 /* ---- flocking / avoidance forces: grid-bucketed AABB separation + cohesion ---- */
 const _SEPCAP=28;          // cap neighbours scanned per cell — bounds worst-case clustering cost
+/* variable node size (organic only): shallower nodes are bigger (more room near the centre, and
+   they're the important navigational anchors) → fills white space + readability, collision-aware */
+function nodeScale(v){ if(mode!=='force') return 1; const d=(v.depth||0); return Math.max(1.0, 1.4-0.14*d); }
+function effW(v){ return NODE_W*nodeScale(v); }
+function effH(v){ return (v.h||40)*nodeScale(v); }
 function _sepStep(vis,gapX,gapY,strength){
-  const cell=Math.max(60,NODE_W+gapX), g=new Map(), K=(x,y)=>x+'|'+y;
+  const cell=Math.max(60,NODE_W*1.9+gapX), g=new Map(), K=(x,y)=>x+'|'+y;
   vis.forEach(v=>{ v._ix=Math.round(v.cx/cell); v._iy=Math.round(v.cy/cell); const k=K(v._ix,v._iy); const a=g.get(k); if(a)a.push(v); else g.set(k,[v]); v._dx=0; v._dy=0; });
   vis.forEach(a=>{
     for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){
       const arr=g.get(K(a._ix+dx,a._iy+dy)); if(!arr)continue;
       const lim=Math.min(arr.length,_SEPCAP);
       for(let i=0;i<lim;i++){ const b=arr[i]; if(b===a)continue;
-        const minX=NODE_W+gapX, minY=(a.h+b.h)/2+gapY, ddx=a.cx-b.cx, ddy=a.cy-b.cy;
+        const minX=(effW(a)+effW(b))/2+gapX, minY=(effH(a)+effH(b))/2+gapY, ddx=a.cx-b.cx, ddy=a.cy-b.cy;
         const ox=minX-Math.abs(ddx), oy=minY-Math.abs(ddy);
         if(ox>0&&oy>0){
           if(ox<=oy){ a._dx+=(ddx===0?(i&1?1:-1):(ddx<0?-1:1))*ox*strength; }
@@ -2985,17 +2990,24 @@ function forceAvoid(vis){
    polish cleans the small-angle approximation. */
 function balloonLayout(vis){
   if(!vis.length) return;
-  const root=vis[0], gap=NODE_W*0.55;
-  // leaf weight per node (for proportional sectors) + node count per depth ring
-  const perDepth={};
-  (function wt(v,d){ perDepth[d]=(perDepth[d]||0)+1; const k=v.children||[]; if(!k.length){ v._w=1; return 1; } let s=0; k.forEach(c=>s+=wt(c,d+1)); v._w=s; return s; })(root,0);
-  // ring spacing: pick the largest so even the DENSEST ring has arc-length for its nodes (no overlap on a ring)
-  let ringStep=NODE_W*1.7;
-  for(const d in perDepth){ const dd=+d; if(dd>=1) ringStep=Math.max(ringStep, perDepth[d]*(NODE_W+gap)/(2*Math.PI*dd)); }
+  const root=vis[0], gap=NODE_W*0.3, PACK=1.0;
+  // leaf weight (proportional sectors) + per-depth count and widest node (for variable sizes)
+  const perDepth={}, wide={}; let maxD=0;
+  (function wt(v,d){ maxD=Math.max(maxD,d); perDepth[d]=(perDepth[d]||0)+1; wide[d]=Math.max(wide[d]||0, effW(v));
+    const k=v.children||[]; if(!k.length){ v._w=1; return 1; } let s=0; k.forEach(c=>s+=wt(c,d+1)); v._w=s; return s; })(root,0);
+  // NON-UNIFORM compact radii: each ring grows by the larger of (radial clearance for the node sizes)
+  // and (radius to fit this ring's nodes around the circle). PACK<1 since nodes cluster in sectors, not
+  // evenly around the ring — the _sepStep polish cleans the few genuinely tight spots. Much less white space.
+  const radius=[0];
+  for(let d=1; d<=maxD; d++){
+    const clear=(wide[d-1]+wide[d])/2 + gap;
+    const circum=perDepth[d]*(wide[d]+gap)/(2*Math.PI)*PACK;
+    radius[d]=Math.max(radius[d-1]+clear, circum);
+  }
   // top-down: each subtree owns a disjoint angular SECTOR (sized by leaf weight); a node fans its
   // children only WITHIN its own sector → edges stay inside the sector and never cross other bubbles.
   (function place(v,depth,a0,a1){
-    const a=(a0+a1)/2, r=depth*ringStep;
+    const a=(a0+a1)/2, r=radius[depth]||0;
     v.cx=r*Math.cos(a); v.cy=r*Math.sin(a);
     const k=v.children||[]; if(!k.length) return;
     let acc=a0;
@@ -3005,7 +3017,7 @@ function balloonLayout(vis){
 function forceOrganic(vis){
   if(vis.length<2) return;
   balloonLayout(vis);                                     // radial sector tree: rounder, balanced, sector-isolated
-  for(let k=0;k<8;k++){ if(_sepStep(vis,18,12,0.32)<vis.length*0.05) break; }   // gentle nudge for residual ring crowding (small moves keep nodes in-sector)
+  for(let k=0;k<40;k++){ if(_sepStep(vis,15,11,0.5)<vis.length*0.006) break; }   // nudge residual crowding (size-aware via effW/effH)
 }
 function computeLayout(visible){
   if(mode==='radial'){
@@ -3033,7 +3045,9 @@ function computeLayout(visible){
   world._bbox={x0:PAD,y0:PAD,x1:(x1-x0)+PAD,y1:(y1-y0)+PAD};
 }
 function position(visible){
-  visible.forEach(v=>{ const el=nodeEls[v.node.id]; el.style.left=(v.cx-NODE_W/2)+'px'; el.style.top=(v.cy-v.h/2)+'px'; });
+  visible.forEach(v=>{ const el=nodeEls[v.node.id]; el.style.left=(v.cx-NODE_W/2)+'px'; el.style.top=(v.cy-v.h/2)+'px';
+    const s=nodeScale(v); el.style.transform = s!==1 ? 'scale('+s.toFixed(3)+')' : '';   // bigger boxes where there's room (organic); scales about centre so cx,cy stay correct
+  });
 }
 function drawLinks(visible){
   let p='';
@@ -3227,7 +3241,7 @@ function focusNode(id,targetScale){
 /* semantic zoom: expand breadth-first only until a node BUDGET is reached, so the screen
    never piles up. Overflowing subtrees stay collapsed as labeled "+N" cluster bubbles you
    click to drill into (one level deeper, re-clustering below). Mode-agnostic. */
-function visBudget(){ const a=viewport.clientWidth*viewport.clientHeight; return Math.max(90, Math.min(320, Math.round(a/5200))); }
+function visBudget(){ const a=viewport.clientWidth*viewport.clientHeight; return Math.max(80, Math.min(260, Math.round(a/6600))); }
 function fitBudget(budget){
   const rootNode=(byId[viewRoot]||byId['root']).node;
   collapsed=new Set(); Object.values(byId).forEach(r=>{ if(r.node.children&&r.node.children.length) collapsed.add(r.node.id); });
