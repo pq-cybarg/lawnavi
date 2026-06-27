@@ -339,6 +339,15 @@
   #panelTab::before{content:'‹';font-size:15px;line-height:1;}
   #panelTab.show{display:inline-flex;}
   #panelTab:hover{background:var(--panel);color:var(--parch);}
+  /* dock tab rail — switch the right panel between Details / Lens / Sources (one at a time) */
+  #dockRail{position:fixed;top:calc(var(--hdr,64px) + 16px);right:380px;z-index:31;display:none;flex-direction:column;gap:7px;}
+  #dockRail.show{display:flex;}
+  #dockRail .dr-tab{width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;
+    background:linear-gradient(180deg,rgba(13,34,64,.97),rgba(8,20,38,.97));border:1px solid var(--line-bright);border-right:none;
+    border-radius:11px 0 0 11px;color:var(--ink-faint);font-size:17px;box-shadow:-7px 7px 22px rgba(0,0,0,.45);transition:color .15s,background .15s;}
+  #dockRail .dr-tab:hover{color:var(--ink);}
+  #dockRail .dr-tab.on{color:var(--gold-soft);border-color:var(--gold);background:rgba(193,154,79,.16);}
+  #dockRail .dr-tab span{font-size:9px;display:block;}
 
   /* legalbar dismiss button */
   .legalbar{position:relative;padding-right:34px;}
@@ -370,18 +379,20 @@
   #panel #pcollapse::before{content:'⟩';font-size:18px;}
 
   /* precedent reliance panel + overturn-impact bar */
-  #precPanel{position:fixed;top:calc(var(--hdr,64px) + 12px);left:12px;width:330px;max-width:calc(100vw - 24px);
-    max-height:calc(100vh - var(--hdr,64px) - 84px);z-index:33;display:none;flex-direction:column;
-    background:linear-gradient(180deg,rgba(13,34,64,.98),rgba(8,20,38,.98));border:1px solid var(--line-bright);
-    border-radius:12px;box-shadow:0 22px 60px rgba(0,0,0,.6);overflow:hidden;}
-  #precPanel.open{display:flex;}
+  /* Precedents & Lens dock into the same right-hand slot as the detail panel —
+     full height (navbar→bottom), internal scroll, one at a time. */
+  #precPanel{position:fixed;top:var(--hdr,64px);right:0;bottom:0;width:380px;max-width:100vw;z-index:30;
+    display:flex;flex-direction:column;background:linear-gradient(180deg,rgba(13,34,64,.98),rgba(8,20,38,.98));
+    border-left:1px solid var(--line-bright);box-shadow:-18px 0 50px rgba(0,0,0,.45);overflow:hidden;
+    transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);}
+  #precPanel.open{transform:translateX(0);}
   #precPanel .pp-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 8px;
     font-family:"Spectral",serif;color:var(--parchment);font-size:15px;}
   #precPanel .pp-head button{background:none;border:none;color:var(--ink-faint);font-size:18px;cursor:pointer;line-height:1;}
   #precPanel #precSearch{margin:0 12px 8px;background:var(--panel);border:1px solid var(--line);color:var(--ink);
     border-radius:7px;padding:7px 10px;font-family:inherit;font-size:12.5px;outline:none;}
   #precPanel #precSearch:focus{border-color:var(--line-bright);}
-  #precBody{overflow-y:auto;padding:2px 8px 10px;}
+  #precBody{flex:1;min-height:0;overflow-y:auto;padding:2px 8px 10px;}
   #precBody .pp-item{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:none;
     color:var(--ink);padding:7px 8px;border-radius:7px;cursor:pointer;font-family:inherit;}
   #precBody .pp-item:hover{background:var(--panel);}
@@ -401,15 +412,15 @@
   #panel .detail .cite-link{cursor:pointer;border-bottom:1px dashed var(--line-bright);}
   #panel .detail .cite-link:hover{color:var(--gold-soft);border-color:var(--gold);}
   /* Lens / perspective control */
-  #lensPanel{position:fixed;top:calc(var(--hdr,64px) + 12px);left:12px;width:336px;max-width:calc(100vw - 24px);
-    max-height:calc(100vh - var(--hdr,64px) - 84px);z-index:34;display:none;flex-direction:column;
-    background:linear-gradient(180deg,rgba(13,34,64,.98),rgba(8,20,38,.98));border:1px solid var(--line-bright);
-    border-radius:12px;box-shadow:0 22px 60px rgba(0,0,0,.6);overflow:hidden;}
-  #lensPanel.open{display:flex;}
+  #lensPanel{position:fixed;top:var(--hdr,64px);right:0;bottom:0;width:380px;max-width:100vw;z-index:30;
+    display:flex;flex-direction:column;background:linear-gradient(180deg,rgba(13,34,64,.98),rgba(8,20,38,.98));
+    border-left:1px solid var(--line-bright);box-shadow:-18px 0 50px rgba(0,0,0,.45);overflow:hidden;
+    transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);}
+  #lensPanel.open{transform:translateX(0);}
   #lensPanel .pp-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 8px;
     font-family:"Spectral",serif;color:var(--parchment);font-size:15px;}
   #lensPanel .pp-head button{background:none;border:none;color:var(--ink-faint);font-size:18px;cursor:pointer;line-height:1;}
-  #lensPanel .lz-body{overflow-y:auto;padding:0 14px 14px;}
+  #lensPanel .lz-body{flex:1;min-height:0;overflow-y:auto;padding:0 14px 14px;}
   #lensPanel .lz-lbl{font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin:8px 0 5px;}
   #lensPanel #lensPick{width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line);color:var(--ink);
     border-radius:7px;padding:8px 10px;font-family:inherit;font-size:12.5px;outline:none;}
@@ -437,6 +448,8 @@
     align-items:center;gap:12px;max-width:calc(100vw - 24px);background:rgba(193,154,79,.16);border:1px solid var(--gold);
     border-radius:24px;padding:8px 10px 8px 16px;backdrop-filter:blur(6px);color:#EDE2C8;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   #lensBar.show{display:flex;}
+  /* keep the status bubbles centered over the MAP, not under the open right dock */
+  body.dock-open #impactBar, body.dock-open #lensBar{ left:calc(50% - 190px); }
   #lensBar #lensTxt{overflow:hidden;text-overflow:ellipsis;}
   #lensBar b{color:#fff;}
   #lensBar button{flex:0 0 auto;background:var(--gold);color:var(--bg);border:none;border-radius:18px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:700;}
@@ -480,9 +493,13 @@
     #footbar .fb-hint,#footbar .fb-sep{display:none;}
     #footbar.shift{display:none;}
     #footTab{width:30px;height:30px;}
-    #precPanel{left:8px;right:8px;width:auto;top:calc(var(--hdr,64px) + 8px);max-height:calc(100vh - var(--hdr,64px) - 56px);}
-    #lensPanel{left:8px;right:8px;width:auto;top:calc(var(--hdr,64px) + 8px);max-height:calc(100vh - var(--hdr,64px) - 56px);}
-    #impactBar,#lensBar{left:8px;right:8px;transform:none;max-width:none;font-size:11px;white-space:normal;border-radius:14px;}
+    /* on phones the docked panels become bottom sheets, like the detail panel */
+    #precPanel,#lensPanel{top:auto;bottom:0;left:0;right:auto;width:100%;height:62vh;border-left:none;
+      border-top:1px solid var(--line);border-radius:14px 14px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.5);
+      transform:translateY(100%);}
+    #precPanel.open,#lensPanel.open{transform:translateY(0);}
+    #dockRail{display:none!important;}
+    #impactBar,#lensBar,body.dock-open #impactBar,body.dock-open #lensBar{left:8px;right:8px;transform:none;max-width:none;font-size:11px;white-space:normal;border-radius:14px;}
     .node{padding:9px 11px 10px;}
     .node .title{font-size:13px;} .node .blurb{font-size:11px;}
     .node .toggle{width:30px;height:30px;right:-15px;}
@@ -552,6 +569,11 @@
   </div>
 </aside>
 <button id="panelTab" title="Reopen details panel">Details</button>
+<div id="dockRail" role="tablist" aria-label="Right panel">
+  <button class="dr-tab" data-dock="details" role="tab" title="Details of the selected bubble">📄<span>Info</span></button>
+  <button class="dr-tab" data-dock="lens" role="tab" title="Lens — re-root &amp; invert the map">🧭<span>Lens</span></button>
+  <button class="dr-tab" data-dock="prec" role="tab" title="Sources — precedent reliance &amp; overturn impact">⚖<span>Cites</span></button>
+</div>
 
 <div id="legend">
   <div class="lhead">Sources & levels of law<span class="lx" id="legX" title="Fold this panel">✕</span></div>
@@ -3145,9 +3167,22 @@ function openPanel(id){
       const gid=b.dataset.go; expandTo(gid); render(); openPanel(gid); focusNode(gid,Math.max(scale,0.8));
     }));
   } else { kids.style.display='none'; kids.innerHTML=''; }
-  panel.classList.add('open');
-  document.getElementById('panelTab').classList.remove('show');
-  document.getElementById('footbar').classList.add('shift');
+  showDock('details');
+}
+/* mutually-exclusive right dock — Details / Lens / Sources share one full-height slot, one at a time */
+function showDock(which){
+  [['panel','details'],['lensPanel','lens'],['precPanel','prec']].forEach(([id,k])=>{ const el=document.getElementById(id); if(el) el.classList.toggle('open', k===which); });
+  const fb=document.getElementById('footbar'); if(fb) fb.classList.toggle('shift', !!which);
+  document.querySelectorAll('#dockRail .dr-tab').forEach(t=>t.classList.toggle('on', t.getAttribute('data-dock')===which));
+  const rail=document.getElementById('dockRail'); if(rail) rail.classList.toggle('show', !!which);
+  document.body.classList.toggle('dock-open', !!which);
+  if(which) document.getElementById('panelTab').classList.remove('show');
+}
+function dockTab(which){
+  if(which==='details'){ if(selectedId&&byId[selectedId]) openPanel(selectedId); return; }
+  const id=which==='lens'?'lensPanel':'precPanel', btn=which==='lens'?'btnLens':'btnPrec';
+  if(document.getElementById(id).classList.contains('open')){ showDock(which); return; }
+  const b=document.getElementById(btn); if(b) b.click();
 }
 /* inject Focus / Isolate controls into the panel bar */
 (function(){ const pbar=document.querySelector('#panel .pbar'), close=pbar.querySelector('.close');
@@ -3165,21 +3200,19 @@ function openPanel(id){
   pbar.insertBefore(f,close); pbar.insertBefore(iso,close); pbar.insertBefore(lz,close); pbar.insertBefore(th,close); pbar.insertBefore(sd,close);
 })();
 document.getElementById('pclose').addEventListener('click',()=>{
-  panel.classList.remove('open'); selectedId=null;
+  showDock(''); selectedId=null;
   Object.values(nodeEls).forEach(el=>el.classList.remove('selected'));
-  document.getElementById('footbar').classList.remove('shift');
   document.getElementById('panelTab').classList.remove('show');
 });
 /* fold the panel away (keeps your selection) and offer a tab to reopen it */
 document.getElementById('pcollapse').addEventListener('click',()=>{
-  panel.classList.remove('open');
-  document.getElementById('footbar').classList.remove('shift');
+  showDock('');
   if(selectedId) document.getElementById('panelTab').classList.add('show');
 });
 document.getElementById('panelTab').addEventListener('click',()=>{
-  document.getElementById('panelTab').classList.remove('show');
-  if(selectedId){ panel.classList.add('open'); document.getElementById('footbar').classList.add('shift'); }
+  if(selectedId) showDock('details'); else document.getElementById('panelTab').classList.remove('show');
 });
+document.querySelectorAll('#dockRail .dr-tab').forEach(t=>t.addEventListener('click',()=>dockTab(t.getAttribute('data-dock'))));
 /* mobile: hamburger toggles the tool buttons */
 (function(){ const nt=document.getElementById('navToggle'), tb=document.getElementById('toolbtns');
   nt.addEventListener('click',()=>{ const open=tb.classList.toggle('open'); nt.setAttribute('aria-expanded',open?'true':'false'); setHdr&&setHdr(); }); })();
@@ -3373,7 +3406,7 @@ const PRECW=(function(){
     searchActive=true; render();
     const trunks=new Set(); r.blast.forEach(id=>trunks.add(trunkName(id)));
     txt.innerHTML='Overturning <b>'+escapeHtml(PREC[k].display)+'</b> would touch <b>'+r.blast.size+'</b> bubble'+(r.blast.size!==1?'s':'')+' across <b>'+trunks.size+'</b> branch'+(trunks.size!==1?'es':'')+' — direct '+r.direct+' · downstream '+(r.blast.size-r.direct);
-    bar.classList.add('show'); root.classList.add('open'); renderImpactList(r); }
+    bar.classList.add('show'); showDock('prec'); renderImpactList(r); }
   function clear(){ if(searchBase){ collapsed=new Set(searchBase); searchBase=null; } searchActive=false; hiMatch.clear(); hiPath.clear(); bar.classList.remove('show'); render(); renderList(); }
   function gotoImpact(id){ expandTo(id); collapsed.delete(id); render(); openPanel(id); focusNode(id,Math.max(scale,0.85)); }
   body.addEventListener('click',e=>{ const t=e.target.closest('[data-i],[data-go],[data-back]'); if(!t)return;
@@ -3381,9 +3414,9 @@ const PRECW=(function(){
     if(t.hasAttribute('data-go')){ gotoImpact(t.getAttribute('data-go')); return; }
     const x=lastRanked[+t.getAttribute('data-i')]; if(x) show(x.k); });
   psearch.addEventListener('input',renderList);
-  document.getElementById('precClose').addEventListener('click',()=>root.classList.remove('open'));
+  document.getElementById('precClose').addEventListener('click',()=>showDock(''));
   document.getElementById('impactClear').addEventListener('click',clear);
-  document.getElementById('btnPrec').addEventListener('click',()=>{ if(root.classList.contains('open')) root.classList.remove('open'); else { if(!bar.classList.contains('show')) renderList(); root.classList.add('open'); psearch.focus(); } });
+  document.getElementById('btnPrec').addEventListener('click',()=>{ if(root.classList.contains('open')) showDock(''); else { if(!bar.classList.contains('show')) renderList(); showDock('prec'); psearch.focus(); } });
   build();
   return { show, clear, keyOf:key, has:k=>!!(PREC[k]&&PREC[k].by.size>=2) };
 })();
@@ -3524,12 +3557,10 @@ const LENS=(function(){
     barTxt.innerHTML='Lens on <b>'+escapeHtml(byId[st.rootId].node.name)+'</b> · '+dirTxt+' · '+escapeHtml(pLbl)+' — <b>'+count+'</b> node'+(count!==1?'s':'')+(conv?(' · '+conv+' convergence'+(conv!==1?'s':'')):'');
     bar.classList.add('show'); lpanel.classList.remove('open'); exitBtn.disabled=false;
   }
-  function exit(){ lpanel.classList.remove('open');
+  function exit(){ if(typeof showDock==='function') showDock(''); else lpanel.classList.remove('open');
     if(!st.active) return;
     st.active=false; clearLensIds(); viewRoot='root'; selectedId=null; kbdId=null;
     bar.classList.remove('show'); exitBtn.disabled=true;
-    document.getElementById('panel').classList.remove('open');
-    document.getElementById('footbar').classList.remove('shift');
     document.getElementById('panelTab').classList.remove('show');
     render(); fit();
   }
@@ -3545,14 +3576,13 @@ const LENS=(function(){
   function setChosen(id){ chosen=id; st.rootId=id; if(byId[id]) pick.value=byId[id].node.name; }
 
   document.getElementById('btnLens').addEventListener('click',()=>{
-    if(lpanel.classList.contains('open')){ lpanel.classList.remove('open'); return; }
-    const pp=document.getElementById('precPanel'); if(pp) pp.classList.remove('open');
+    if(lpanel.classList.contains('open')){ showDock(''); return; }
     if(!chosen){ let seed=selectedId; if(seed&&byId[seed]&&byId[seed].node._real) seed=byId[seed].node._real;
       if(!seed||!byId[seed]||String(seed).indexOf('lens:')===0) seed='const'; setChosen(seed); }
     renderPicks(pick.value.trim().toLowerCase());
-    lpanel.classList.add('open'); pick.focus(); if(pick.select)pick.select();
+    showDock('lens'); pick.focus(); if(pick.select)pick.select();
   });
-  document.getElementById('lensClose').addEventListener('click',()=>lpanel.classList.remove('open'));
+  document.getElementById('lensClose').addEventListener('click',()=>showDock(''));
   pick.addEventListener('input',()=>renderPicks(pick.value.trim().toLowerCase()));
   pick.addEventListener('focus',()=>renderPicks(pick.value.trim().toLowerCase()));
   pick.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const f=results.querySelector('[data-id]'); if(f){ setChosen(f.getAttribute('data-id')); activate(); } } });
