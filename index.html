@@ -94,6 +94,7 @@
     letter-spacing:.02em;transition:all .15s;white-space:nowrap;}
   button.tool:hover{border-color:var(--line-bright);color:var(--ink);background:var(--panel-2);}
   button.tool:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+  button.tool.on{border-color:var(--gold);color:var(--gold-soft);background:rgba(193,154,79,.14);}
 
   /* ---- viewport / world ---- */
   #viewport{position:fixed;inset:var(--hdr,64px) 0 0 0;z-index:10;overflow:hidden;cursor:grab;touch-action:none;}
@@ -536,6 +537,8 @@
       <button class="tool" id="btnPrec" title="See what relies on a precedent / clause, and the overturn blast radius">⟐ Precedents</button>
       <button class="tool" id="btnLens" title="Re-root the map on any subject and invert the hierarchy — drill down to the foundations it rests on, or roll up to everything that rests on it, through whichever perspective you choose">🧭 Lens</button>
       <button class="tool" id="btnMode">◐ Radial view</button>
+      <button class="tool" id="btnOrganic" title="Organic view — nodes self-organize by attraction (edges) and avoidance (repulsion)">✦ Organic</button>
+      <button class="tool" id="btnSpread" title="Flocking/avoidance: separate overlapping nodes while keeping the map compact">⊙ Spread</button>
       <button class="tool" id="btnZout" title="Zoom out (−)">&minus;</button>
       <button class="tool" id="btnZin" title="Zoom in (+)">+</button>
       <button class="tool" id="btnFit" title="Fit to screen (F)">Fit</button>
@@ -2833,7 +2836,8 @@ let collapsed = new Set();
 })(DATA);
 
 let tx=0, ty=0, scale=1;
-let mode='tree';          // 'tree' = hierarchy · 'radial' = DAG bloom
+let mode='tree';          // 'tree' = hierarchy · 'radial' = DAG bloom · 'force' = organic
+let spread=true;          // flocking/avoidance: separation pass over tree & radial
 let viewRoot='root';      // for Isolate
 let selectedId=null;
 let kbdId=null;           // keyboard-navigation cursor
@@ -2904,22 +2908,72 @@ function measure(visible){
     v.h=el.offsetHeight;
   });
 }
+/* ---- flocking / avoidance forces: grid-bucketed AABB separation + cohesion ---- */
+const _SEPCAP=22;          // cap neighbours scanned per cell — bounds worst-case clustering cost
+function _sepStep(vis,gapX,gapY,strength){
+  const cell=Math.max(60,NODE_W+gapX), g=new Map(), K=(x,y)=>x+'|'+y;
+  vis.forEach(v=>{ v._ix=Math.round(v.cx/cell); v._iy=Math.round(v.cy/cell); const k=K(v._ix,v._iy); const a=g.get(k); if(a)a.push(v); else g.set(k,[v]); v._dx=0; v._dy=0; });
+  vis.forEach(a=>{
+    for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){
+      const arr=g.get(K(a._ix+dx,a._iy+dy)); if(!arr)continue;
+      const lim=Math.min(arr.length,_SEPCAP);
+      for(let i=0;i<lim;i++){ const b=arr[i]; if(b===a)continue;
+        const minX=NODE_W+gapX, minY=(a.h+b.h)/2+gapY, ddx=a.cx-b.cx, ddy=a.cy-b.cy;
+        const ox=minX-Math.abs(ddx), oy=minY-Math.abs(ddy);
+        if(ox>0&&oy>0){
+          if(ox<=oy){ a._dx+=(ddx===0?(i&1?1:-1):(ddx<0?-1:1))*ox*strength; }
+          else      { a._dy+=(ddy===0?1:(ddy<0?-1:1))*oy*strength; }
+        }
+      }
+    }
+  });
+  let moved=0; vis.forEach(v=>{ v.cx+=v._dx; v.cy+=v._dy; moved+=Math.abs(v._dx)+Math.abs(v._dy); });
+  return moved;
+}
+function forceAvoid(vis){
+  if(vis.length<2) return;
+  vis.forEach(v=>{ v._sx=v.cx; v._sy=v.cy; });            // tidy seed = anchor for compactness
+  const iters=vis.length>1200?14:vis.length>500?20:30;
+  for(let it=0;it<iters;it++){
+    const moved=_sepStep(vis,16,10,0.32);
+    vis.forEach(v=>{ v.cx+=(v._sx-v.cx)*0.05; v.cy+=(v._sy-v.cy)*0.05; });  // cohesion toward tidy spot
+    if(moved<vis.length*0.4) break;                       // settled (e.g. tree had no overlaps)
+  }
+  for(let k=0;k<10;k++) if(_sepStep(vis,16,10,0.5)<vis.length*0.15) break;     // polish: clear residual overlaps
+}
+function forceOrganic(vis){
+  if(vis.length<2) return;
+  const n=vis.length, iters=n>1500?26:n>700?48:n>300?80:130, L=NODE_W*1.3;
+  for(let it=0;it<iters;it++){
+    const t=it/iters;
+    vis.forEach(v=>{ const p=v.parent; if(!p)return;        // edge springs = cohesion
+      let dx=v.cx-p.cx, dy=v.cy-p.cy, d=Math.hypot(dx,dy)||0.01, f=(d-L)/d*0.08, fx=dx*f, fy=dy*f;
+      v.cx-=fx; v.cy-=fy; p.cx+=fx*0.5; p.cy+=fy*0.5; });
+    _sepStep(vis,20,12,0.5);                               // separation = avoidance
+    let mx=0,my=0; vis.forEach(v=>{mx+=v.cx;my+=v.cy;}); mx/=n; my/=n;
+    const grav=0.008*(1-t*0.6);                            // gravity = compactness
+    vis.forEach(v=>{ v.cx+=(mx-v.cx)*grav; v.cy+=(my-v.cy)*grav; });
+  }
+  for(let k=0;k<18;k++) if(_sepStep(vis,20,12,0.5)<vis.length*0.15) break;     // settle: clear residual overlaps
+}
 function computeLayout(visible){
-  if(mode==='tree'){
-    let cursor=0;
-    (function place(v){
-      v.cx=v.depth*(NODE_W+H_GAP)+NODE_W/2;
-      if(v.children.length===0){ v.cy=cursor+v.h/2; cursor+=v.h+V_GAP; }
-      else{ v.children.forEach(place); v.cy=(v.children[0].cy+v.children[v.children.length-1].cy)/2; }
-    })(visible[0]);
-  } else {
+  if(mode==='radial'){
     let leaf=0; const leaves=visible.filter(v=>v.children.length===0).length||1;
     (function ang(v){
       if(v.children.length===0){ v._a=(leaf+0.5)/leaves*Math.PI*2; leaf++; }
       else{ v.children.forEach(ang); v._a=(v.children[0]._a+v.children[v.children.length-1]._a)/2; }
     })(visible[0]);
     visible.forEach(v=>{ const r=v.depth*RING; v.cx=r*Math.sin(v._a); v.cy=-r*Math.cos(v._a); });
+  } else {
+    let cursor=0;
+    (function place(v){
+      v.cx=v.depth*(NODE_W+H_GAP)+NODE_W/2;
+      if(v.children.length===0){ v.cy=cursor+v.h/2; cursor+=v.h+V_GAP; }
+      else{ v.children.forEach(place); v.cy=(v.children[0].cy+v.children[v.children.length-1].cy)/2; }
+    })(visible[0]);
   }
+  if(mode==='force') forceOrganic(visible);
+  else if(spread) forceAvoid(visible);
   let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
   visible.forEach(v=>{ x0=Math.min(x0,v.cx-NODE_W/2); x1=Math.max(x1,v.cx+NODE_W/2);
     y0=Math.min(y0,v.cy-v.h/2); y1=Math.max(y1,v.cy+v.h/2); });
@@ -2996,8 +3050,14 @@ function toggle(id){
 }
 
 /* ---- view-mode switch with a rotational transition (hierarchy <-> DAG) ---- */
+function updateModeBtns(){
+  const bm=document.getElementById('btnMode'); if(bm) bm.textContent=mode==='radial'?'◑ Tree view':'◐ Radial view';
+  const bo=document.getElementById('btnOrganic'); if(bo) bo.classList.toggle('on',mode==='force');
+  const bs=document.getElementById('btnSpread'); if(bs){ bs.classList.toggle('on',spread&&mode!=='force'); bs.style.opacity=mode==='force'?'.45':''; }
+}
 function setMode(newMode){
   if(animating||newMode===mode) return;
+  if(newMode==='force'||mode==='force'){ mode=newMode; updateModeBtns(); render(); fit(); return; }
   const dir=newMode==='radial'?1:-1, visible=curVisible;
   const from=visible.map(v=>({cx:v.cx,cy:v.cy}));
   mode=newMode; computeLayout(visible);
@@ -3292,6 +3352,9 @@ document.getElementById('btnCollapse').addEventListener('click',()=>{
 });
 document.getElementById('btnFit').addEventListener('click',fit);
 document.getElementById('btnMode').addEventListener('click',()=>setMode(mode==='tree'?'radial':'tree'));
+document.getElementById('btnOrganic').addEventListener('click',()=>setMode(mode==='force'?'tree':'force'));
+document.getElementById('btnSpread').addEventListener('click',()=>{ spread=!spread; updateModeBtns(); render(); fit(); });
+updateModeBtns();
 document.getElementById('btnZin').addEventListener('click',()=>zoomBy(1.2));
 document.getElementById('btnZout').addEventListener('click',()=>zoomBy(1/1.2));
 document.getElementById('isoexit').addEventListener('click',exitIsolate);
