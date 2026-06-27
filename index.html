@@ -2848,7 +2848,7 @@ let collapsed = new Set();
 })(DATA);
 
 let tx=0, ty=0, scale=1;
-let mode='tree';          // 'tree' = hierarchy · 'radial' = DAG bloom · 'force' = organic
+let mode='tree';          // 'tree' = hierarchy · 'radial' = DAG bloom · 'force' = organic (balloon)
 let spread=true;          // flocking/avoidance: separation pass over tree & radial
 let viewRoot='root';      // for Isolate
 let selectedId=null;
@@ -2978,21 +2978,37 @@ function forceAvoid(vis){
   }
   for(let k=0;k<24;k++) if(_sepStep(vis,22,14,0.6)<vis.length*0.05) break;     // polish: drive residual overlaps to ~0
 }
+/* ORGANIC = hierarchical balloon / radial-bubble tree.
+   Group-level avoidance: each subtree is packed into its own bubble and given a disjoint
+   angular wedge, so whole SUBTREES avoid each other (not just individual nodes). Non-overlapping
+   by construction, O(n), scales to thousands without becoming a hairball. A short separation/edge
+   polish cleans the small-angle approximation. */
+function balloonLayout(vis){
+  if(!vis.length) return;
+  const M=14, GAP=NODE_W*0.28;
+  const nodeR=v=>Math.hypot(NODE_W,(v.h||40))/2+M;
+  (function measure(v){
+    const kids=v.children||[];
+    if(!kids.length){ v._R=nodeR(v); v._ring=0; return; }
+    kids.forEach(measure);
+    const crs=kids.map(c=>c._R), sumR=crs.reduce((a,r)=>a+r,0)||1, maxR=Math.max.apply(null,crs);
+    const wedge=v.parent?Math.PI*1.35:Math.PI*2;          // root: full circle · others: fan outward
+    const ring=Math.max(nodeR(v)+maxR+GAP, 2*sumR/wedge+GAP);
+    v._ring=ring;
+    const slices=crs.map(r=>2*r/ring), total=slices.reduce((a,s)=>a+s,0);
+    let acc=-total/2;                                      // centre the fan on the outward direction
+    kids.forEach((c,i)=>{ c._mid=acc+slices[i]/2; acc+=slices[i]; });
+    v._R=ring+maxR;
+  })(vis[0]);
+  (function place(v,x,y,outDir){
+    v.cx=x; v.cy=y;
+    (v.children||[]).forEach(c=>{ const a=outDir+c._mid; place(c, x+v._ring*Math.cos(a), y+v._ring*Math.sin(a), a); });
+  })(vis[0],0,0,-Math.PI/2);
+}
 function forceOrganic(vis){
   if(vis.length<2) return;
-  const n=vis.length, iters=n>1500?34:n>700?58:n>300?95:160, L=NODE_W*1.85;
-  for(let it=0;it<iters;it++){
-    const t=it/iters;
-    vis.forEach(v=>{ const p=v.parent; if(!p)return;        // edge springs = cohesion (gentle, so separation can win)
-      let dx=v.cx-p.cx, dy=v.cy-p.cy, d=Math.hypot(dx,dy)||0.01, f=(d-L)/d*0.05, fx=dx*f, fy=dy*f;
-      v.cx-=fx; v.cy-=fy; p.cx+=fx*0.5; p.cy+=fy*0.5; });
-    _sepStep(vis,34,22,0.62);                              // strong node↔node separation, generous gaps
-    _edgeStep(vis,NODE_W*0.4,0.62);                        // keep nodes well off the link lines
-    let mx=0,my=0; vis.forEach(v=>{mx+=v.cx;my+=v.cy;}); mx/=n; my/=n;
-    const grav=0.0035*(1-t*0.6);                           // light gravity = compactness without crushing
-    vis.forEach(v=>{ v.cx+=(mx-v.cx)*grav; v.cy+=(my-v.cy)*grav; });
-  }
-  for(let k=0;k<40;k++){ const m=_sepStep(vis,34,22,0.62)+_edgeStep(vis,NODE_W*0.4,0.62); if(m<vis.length*0.05) break; }  // settle nodes & lines
+  balloonLayout(vis);                                     // structured, group-separated base
+  for(let k=0;k<16;k++){ const m=_sepStep(vis,22,14,0.5)+_edgeStep(vis,NODE_W*0.34,0.55); if(m<vis.length*0.05) break; }  // polish residuals
 }
 function computeLayout(visible){
   if(mode==='radial'){
