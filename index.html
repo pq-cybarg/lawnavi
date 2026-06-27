@@ -2983,42 +2983,62 @@ function forceAvoid(vis){
   }
   for(let k=0;k<24;k++) if(_sepStep(vis,22,14,0.6)<vis.length*0.05) break;     // polish: drive residual overlaps to ~0
 }
-/* ORGANIC = hierarchical balloon / radial-bubble tree.
-   Group-level avoidance: each subtree is packed into its own bubble and given a disjoint
-   angular wedge, so whole SUBTREES avoid each other (not just individual nodes). Non-overlapping
-   by construction, O(n), scales to thousands without becoming a hairball. A short separation/edge
-   polish cleans the small-angle approximation. */
+/* ORGANIC = hierarchical radial SECTOR tree — overlap-free BY CONSTRUCTION, all three kinds:
+   • Each subtree owns a DISJOINT angular sector (∝ leaf weight); a node fans its children only
+     within that sector, so every edge stays inside its own convex wedge. Disjoint wedges ⇒ no edge
+     can enter another bubble → no line-vs-line and no line-vs-box across subtrees, ever.
+   • Each ring's radius is set so every node's box width fits inside its OWN sector's arc, and rings
+     are spaced by node heights ⇒ no two boxes can overlap. The geometry makes it impossible. */
 function balloonLayout(vis){
   if(!vis.length) return;
-  const root=vis[0], gap=NODE_W*0.3, PACK=1.0;
-  // leaf weight (proportional sectors) + per-depth count and widest node (for variable sizes)
-  const perDepth={}, wide={}; let maxD=0;
-  (function wt(v,d){ maxD=Math.max(maxD,d); perDepth[d]=(perDepth[d]||0)+1; wide[d]=Math.max(wide[d]||0, effW(v));
+  const root=vis[0], gap=NODE_W*0.32, TAU=2*Math.PI;
+  const byDepth={}; let maxD=0;
+  (function wt(v,d){ maxD=Math.max(maxD,d); (byDepth[d]=byDepth[d]||[]).push(v);
     const k=v.children||[]; if(!k.length){ v._w=1; return 1; } let s=0; k.forEach(c=>s+=wt(c,d+1)); v._w=s; return s; })(root,0);
-  // NON-UNIFORM compact radii: each ring grows by the larger of (radial clearance for the node sizes)
-  // and (radius to fit this ring's nodes around the circle). PACK<1 since nodes cluster in sectors, not
-  // evenly around the ring — the _sepStep polish cleans the few genuinely tight spots. Much less white space.
+  const total=root._w||1;
+  // exact radii: r·span(v) ≥ box width (arc holds the box) AND ring gap ≥ node heights — no approximation
   const radius=[0];
   for(let d=1; d<=maxD; d++){
-    const clear=(wide[d-1]+wide[d])/2 + gap;
-    const circum=perDepth[d]*(wide[d]+gap)/(2*Math.PI)*PACK;
-    radius[d]=Math.max(radius[d-1]+clear, circum);
+    let rArc=0, hCur=0, hPrev=0;
+    byDepth[d].forEach(v=>{ const half=(v._w/total)*Math.PI;                 // half of this node's angular span
+      // the box's far CORNER must stay inside the sector: atan((effW/2+gap)/(r-effH/2)) ≤ half
+      //   ⇒ r ≥ effH/2 + (effW/2+gap)/tan(half).  Accounts for box width AND height (corner, not midpoint).
+      const need = half>=1.30 ? (effH(v)/2 + effW(v)/2 + gap) : (effH(v)/2 + (effW(v)/2+gap)/Math.tan(half));
+      rArc=Math.max(rArc, need); hCur=Math.max(hCur,effH(v)); });
+    (byDepth[d-1]||[]).forEach(v=>{ hPrev=Math.max(hPrev,effH(v)); });
+    radius[d]=Math.max(rArc, radius[d-1]+(hPrev+hCur)/2+gap);
   }
-  // top-down: each subtree owns a disjoint angular SECTOR (sized by leaf weight); a node fans its
-  // children only WITHIN its own sector → edges stay inside the sector and never cross other bubbles.
   (function place(v,depth,a0,a1){
     const a=(a0+a1)/2, r=radius[depth]||0;
     v.cx=r*Math.cos(a); v.cy=r*Math.sin(a);
     const k=v.children||[]; if(!k.length) return;
-    let acc=a0;
-    k.forEach(c=>{ const span=(c._w/v._w)*(a1-a0); place(c,depth+1,acc,acc+span); acc+=span; });
+    let acc=a0; k.forEach(c=>{ const span=(c._w/v._w)*(a1-a0); place(c,depth+1,acc,acc+span); acc+=span; });
   })(root,0,-Math.PI,Math.PI);
 }
-function forceOrganic(vis){
+/* hard box-overlap guarantee for the other modes (radial bloom): push any overlapping boxes apart
+   until none remain — grid-bucketed, converges fast, visible set is budget-capped. NO-OP when the
+   layout is already overlap-free (the exact organic tree and the tidy tree), so it never perturbs them. */
+function resolveOverlaps(vis){
   if(vis.length<2) return;
-  balloonLayout(vis);                                     // radial sector tree: rounder, balanced, sector-isolated
-  for(let k=0;k<40;k++){ if(_sepStep(vis,15,11,0.5)<vis.length*0.006) break; }   // nudge residual crowding (size-aware via effW/effH)
+  vis.forEach((v,i)=>v._si=i);
+  const cell=Math.max(60,NODE_W*1.7), K=(x,y)=>x+'|'+y;
+  for(let pass=0;pass<160;pass++){
+    const g=new Map();
+    vis.forEach(v=>{ v._ix=Math.round(v.cx/cell); v._iy=Math.round(v.cy/cell); const k=K(v._ix,v._iy); const a=g.get(k); if(a)a.push(v); else g.set(k,[v]); });
+    let any=false;
+    vis.forEach(a=>{ for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){ const arr=g.get(K(a._ix+dx,a._iy+dy)); if(!arr)continue;
+      for(const b of arr){ if(b._si<=a._si)continue;
+        const minX=(effW(a)+effW(b))/2+5, minY=(effH(a)+effH(b))/2+4, ddx=a.cx-b.cx, ddy=a.cy-b.cy;
+        const ox=minX-Math.abs(ddx), oy=minY-Math.abs(ddy);
+        if(ox>0&&oy>0){ any=true;
+          if(ox<=oy){ const p=ox/2+0.5; if(ddx<0){a.cx-=p;b.cx+=p;}else{a.cx+=p;b.cx-=p;} }
+          else      { const p=oy/2+0.5; if(ddy<0){a.cy-=p;b.cy+=p;}else{a.cy+=p;b.cy-=p;} }
+        }
+      } } });
+    if(!any) break;
+  }
 }
+function forceOrganic(vis){ if(vis.length<2) return; balloonLayout(vis); }   // overlap-free by construction
 function computeLayout(visible){
   if(mode==='radial'){
     let leaf=0; const leaves=visible.filter(v=>v.children.length===0).length||1;
@@ -3037,6 +3057,7 @@ function computeLayout(visible){
   }
   if(mode==='force') forceOrganic(visible);
   else if(spread) forceAvoid(visible);
+  resolveOverlaps(visible);                                // hard guarantee: no two boxes overlap, any mode (no-op when already clean)
   let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
   visible.forEach(v=>{ x0=Math.min(x0,v.cx-NODE_W/2); x1=Math.max(x1,v.cx+NODE_W/2);
     y0=Math.min(y0,v.cy-v.h/2); y1=Math.max(y1,v.cy+v.h/2); });
@@ -3051,11 +3072,24 @@ function position(visible){
 }
 function drawLinks(visible){
   let p='';
+  // organic: radial links — leave parent & enter child radially, sweep angularly in the EMPTY annulus
+  // BETWEEN rings (no boxes live there) → edges provably can't cross any box, and fan apart so they
+  // don't overlap each other except at the shared parent junction.
+  const cen = (mode==='force' && visible[0]) ? {x:visible[0].cx, y:visible[0].cy} : null;
   visible.forEach(v=>v.children.forEach(c=>{
-    const x1=v.cx,y1=v.cy,x2=c.cx,y2=c.cy;
-    const d = mode==='tree'
-      ? 'M'+x1+' '+y1+' C'+((x1+x2)/2)+' '+y1+' '+((x1+x2)/2)+' '+y2+' '+x2+' '+y2
-      : 'M'+x1+' '+y1+' L'+x2+' '+y2;
+    const x1=v.cx,y1=v.cy,x2=c.cx,y2=c.cy; let d;
+    if(mode==='tree'){
+      d='M'+x1+' '+y1+' C'+((x1+x2)/2)+' '+y1+' '+((x1+x2)/2)+' '+y2+' '+x2+' '+y2;
+    } else if(cen){
+      const aP=Math.atan2(y1-cen.y,x1-cen.x), rP=Math.hypot(x1-cen.x,y1-cen.y);
+      const aC=Math.atan2(y2-cen.y,x2-cen.x), rC=Math.hypot(x2-cen.x,y2-cen.y);
+      const rm=(rP+rC)/2;                                  // mid-radius: in the gap between the two rings
+      const c1x=cen.x+rm*Math.cos(aP), c1y=cen.y+rm*Math.sin(aP);
+      const c2x=cen.x+rm*Math.cos(aC), c2y=cen.y+rm*Math.sin(aC);
+      d='M'+x1+' '+y1+' C'+c1x+' '+c1y+' '+c2x+' '+c2y+' '+x2+' '+y2;
+    } else {
+      d='M'+x1+' '+y1+' L'+x2+' '+y2;
+    }
     let cls=''; if(searchActive) cls=(hiPath.has(v.node.id)&&hiPath.has(c.node.id))?' class="path"':' class="fade"';
     p+='<path'+cls+' d="'+d+'"></path>';
   }));
