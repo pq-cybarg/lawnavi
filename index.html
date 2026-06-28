@@ -2859,11 +2859,11 @@ let searchActive=false;
 let hiPath=new Set(), hiMatch=new Set();
 const ZMIN=0.12, ZMAX=2.6;
 /* minimum zoom so the SMALLEST visible node never renders below a readable share of the screen
-   (≈ viewport/20, min 58px). Caps zoom-out in the bloom → outer nodes stay readable; pan for the rest. */
+   (≈ viewport/6.5, min 174px). Caps zoom-out in the bloom → outer nodes stay readable; pan for the rest. */
 function dynZmin(){
   if(mode!=='force' || !curVisible.length) return ZMIN;
   let mn=99; for(const v of curVisible){ const s=nodeScale(v); if(s<mn) mn=s; }
-  const minPx=Math.max(58, viewport.clientWidth/20);
+  const minPx=Math.max(174, viewport.clientWidth/6.5);   // ≥3x bigger minimum on-screen node size
   return Math.max(ZMIN, Math.min(1.0, minPx/(NODE_W*(mn||1))));
 }
 const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
@@ -3061,7 +3061,7 @@ function baseScale(v){ if(mode==='tree') return 1; const d=v.depth||0;
   return d===0 ? 3.4 : Math.max(1.2, 2.2-0.2*d); }   // root is the big hub; inner big, tapering with depth
 /* how big a box may grow into its free space — much larger toward the centre (the root fills the void
    between itself and its trunks, shortening those long spokes; deeper boxes taper toward the root size) */
-function fillCap(v){ const d=v.depth||0; return d===0 ? 7 : Math.max(2.4, 3.8-0.45*d); }
+function fillCap(v){ const d=v.depth||0; return d===0 ? 8 : Math.max(3.6, 5.4-0.4*d); }   // grow further into empty space
 function sizeToFill(vis){
   if(vis.length<2) return;
   const cell=Math.max(80,NODE_W*4), K=(x,y)=>x+'|'+y, g=new Map();
