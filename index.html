@@ -2858,6 +2858,14 @@ let animating=false;
 let searchActive=false;
 let hiPath=new Set(), hiMatch=new Set();
 const ZMIN=0.12, ZMAX=2.6;
+/* minimum zoom so the SMALLEST visible node never renders below a readable share of the screen
+   (≈ viewport/20, min 58px). Caps zoom-out in the bloom → outer nodes stay readable; pan for the rest. */
+function dynZmin(){
+  if(mode!=='force' || !curVisible.length) return ZMIN;
+  let mn=99; for(const v of curVisible){ const s=nodeScale(v); if(s<mn) mn=s; }
+  const minPx=Math.max(58, viewport.clientWidth/20);
+  return Math.max(ZMIN, Math.min(1.0, minPx/(NODE_W*(mn||1))));
+}
 const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 
 function countDesc(n){ let c=0; (function w(x){ (x.children||[]).forEach(k=>{c++;w(k);}); })(n); return c; }
@@ -3252,11 +3260,11 @@ viewport.addEventListener('wheel',e=>{ e.preventDefault(); if(animating)return;
   const wx=(px-tx)/scale, wy=(py-ty)/scale;
   // smooth, fine-grained: zoom proportional to scroll delta, capped per tick
   const factor=Math.exp(-Math.max(-40,Math.min(40,e.deltaY))*0.0016);
-  const ns=Math.min(ZMAX,Math.max(ZMIN,scale*factor));
+  const ns=Math.min(ZMAX,Math.max(dynZmin(),scale*factor));
   tx=px-wx*ns; ty=py-wy*ns; scale=ns; clampPan(); applyTransform();
 },{passive:false});
 function zoomBy(f){ const cx=viewport.clientWidth/2, cy=viewport.clientHeight/2;
-  const wx=(cx-tx)/scale, wy=(cy-ty)/scale, ns=Math.min(ZMAX,Math.max(ZMIN,scale*f));
+  const wx=(cx-tx)/scale, wy=(cy-ty)/scale, ns=Math.min(ZMAX,Math.max(dynZmin(),scale*f));
   tx=cx-wx*ns; ty=cy-wy*ns; scale=ns; clampPan(); applyTransform(); }
 
 // touch: single-finger pan · two-finger pinch-zoom · double-tap to zoom in
@@ -3271,7 +3279,7 @@ viewport.addEventListener('touchstart',e=>{
 viewport.addEventListener('touchmove',e=>{
   if(pinch && e.touches.length>=2){ const r=viewport.getBoundingClientRect();
     const mx=(e.touches[0].clientX+e.touches[1].clientX)/2-r.left, my=(e.touches[0].clientY+e.touches[1].clientY)/2-r.top;
-    const ns=Math.min(ZMAX,Math.max(ZMIN, pinch.s*(tdist(e.touches)/pinch.d)));
+    const ns=Math.min(ZMAX,Math.max(dynZmin(), pinch.s*(tdist(e.touches)/pinch.d)));
     scale=ns; tx=mx-pinch.wx*ns; ty=my-pinch.wy*ns; clampPan(); applyTransform(); return; }
   if(!dragging)return; const t=e.touches[0];
   tx=stx+(t.clientX-sx);ty=sty+(t.clientY-sy);clampPan();applyTransform();},{passive:true});
@@ -3292,7 +3300,9 @@ function fit(){
   const bb=world._bbox; if(!bb)return;
   const vw=viewport.clientWidth, vh=viewport.clientHeight;
   const w=bb.x1-bb.x0, h=bb.y1-bb.y0;
-  scale=Math.max(ZMIN,Math.min((vw-100)/w,(vh-100)/h,1.1));
+  const fitAll=Math.min((vw-100)/w,(vh-100)/h);
+  // never shrink below the readable floor (dynZmin): show the centre, pan for the rest
+  scale=Math.min(1.1, Math.max(fitAll, dynZmin()));
   tx=(vw-w*scale)/2 - bb.x0*scale;
   ty=(vh-h*scale)/2 - bb.y0*scale;
   applyTransform();
@@ -3308,7 +3318,7 @@ function focusNode(id,targetScale){
 /* semantic zoom: expand breadth-first only until a node BUDGET is reached, so the screen
    never piles up. Overflowing subtrees stay collapsed as labeled "+N" cluster bubbles you
    click to drill into (one level deeper, re-clustering below). Mode-agnostic. */
-function visBudget(){ const a=viewport.clientWidth*viewport.clientHeight; return Math.max(80, Math.min(260, Math.round(a/6600))); }
+function visBudget(){ const a=viewport.clientWidth*viewport.clientHeight; return Math.max(40, Math.min(110, Math.round(a/13000))); }
 function fitBudget(budget){
   const rootNode=(byId[viewRoot]||byId['root']).node;
   collapsed=new Set(); Object.values(byId).forEach(r=>{ if(r.node.children&&r.node.children.length) collapsed.add(r.node.id); });
