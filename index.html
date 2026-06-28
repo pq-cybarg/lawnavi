@@ -157,6 +157,12 @@
   .node.fbacknode .blurb{display:none;}
   .node.fbacknode::before{content:"↑ up to";font-family:"Space Mono",monospace;font-size:8.5px;letter-spacing:.15em;
     text-transform:uppercase;color:var(--gold);display:block;margin-bottom:2px;}
+  /* focus mode: surrounding boxes are navigation targets — make the title big & legible, drop the rest */
+  body.mode-focus .node .title{font-size:21px;line-height:1.18;}
+  body.mode-focus .node:not(.ffocus) .blurb{display:none;}
+  body.mode-focus .node:not(.ffocus) .kind{font-size:11px;margin-bottom:4px;}
+  body.mode-focus .node.ffocus .title{font-size:24px;}
+  body.mode-focus .node.ffocus .blurb{font-size:14px;line-height:1.4;-webkit-line-clamp:3;}
   .node .kind{font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.18em;
     text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;display:flex;align-items:center;gap:6px;}
   .node .kind .dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;}
@@ -2894,7 +2900,11 @@ function countDesc(n){ let c=0; (function w(x){ (x.children||[]).forEach(k=>{c++
 function applyTransform(){ world.style.transform='translate('+tx+'px,'+ty+'px) scale('+scale+')';
   // links keep a constant minimum SCREEN thickness at any zoom (world stroke = screenPx / scale)
   world.style.setProperty('--lw', Math.min(40, Math.max(1.6, 2.2/scale)).toFixed(2));   // ordinary links: ~2.2px on screen
-  world.style.setProperty('--fw', Math.min(80, Math.max(7, 10/scale)).toFixed(2)); }    // focus links: ~10px tap target
+  world.style.setProperty('--fw', Math.min(80, Math.max(7, 10/scale)).toFixed(2));      // focus links: ~10px tap target
+  if(mode==='focus') updateChips(); }
+/* keep focus link-chips at a constant readable SCREEN size (billboard) regardless of zoom */
+function updateChips(){ const k=Math.min(9, Math.max(1, 1.15/scale)).toFixed(2);
+  for(const key in edgeEls){ const el=edgeEls[key]; if(el) el.style.transform='translate(-50%,-50%) scale('+k+')'; } }
 /* keep at least part of the content within the viewport after pan/zoom */
 function clampPan(){ const bb=world._bbox; if(!bb)return; const vw=viewport.clientWidth, vh=viewport.clientHeight;
   const m=Math.min(120, vw*0.4, vh*0.4);
@@ -3342,6 +3352,7 @@ function updateModeBtns(){
   const bf=document.getElementById('btnFocus'); if(bf) bf.classList.toggle('on',mode==='focus');
   const fc=document.getElementById('focusCtl'); if(fc) fc.style.display = mode==='focus' ? '' : 'none';
   const sn=document.getElementById('stepsN'); if(sn) sn.textContent=focusSteps;
+  if(document.body) document.body.classList.toggle('mode-focus', mode==='focus');   // CSS: bigger text in focus
 }
 /* ---- focus mode: travel between neighbourhoods ---- */
 function onNodeActivate(id){                              // a node box was tapped
