@@ -2991,13 +2991,14 @@ function forceAvoid(vis){
    child spoke can't enter a sibling's disjoint circle. */
 function balloonLayout(vis){
   if(!vis.length) return;
-  const root=vis[0], gap=NODE_W*0.33;
+  const root=vis[0];
   const boxR = v => Math.hypot(effW(v),effH(v))/2;
   (function measure(v){
     const kids=v.children||[];
     if(!kids.length){ v._R=boxR(v); v._ring=0; return; }
     kids.forEach(measure);
     const maxCR=Math.max.apply(null,kids.map(c=>c._R));
+    const gap=NODE_W*(0.33+0.10*(v.depth||0));                 // push DEEPER subtrees further out → roomier centre
     const avail = (v===root) ? 2*Math.PI : Math.PI*1.5;        // non-root: bloom outward, leave room toward parent
     let rho = boxR(v)+maxCR+gap;                               // children must clear the parent
     for(let it=0; it<80; it++){                                // grow ring until children's circles fit angularly
@@ -3025,7 +3026,7 @@ function balloonLayout(vis){
 function resolveOverlaps(vis){
   if(vis.length<2) return;
   vis.forEach((v,i)=>v._si=i);
-  const cell=Math.max(60,NODE_W*1.7), K=(x,y)=>x+'|'+y;
+  const cell=Math.max(60,NODE_W*3.6), K=(x,y)=>x+'|'+y;   // big enough that overlaps incl. the large root box are caught
   for(let pass=0;pass<160;pass++){
     const g=new Map();
     vis.forEach(v=>{ v._ix=Math.round(v.cx/cell); v._iy=Math.round(v.cy/cell); const k=K(v._ix,v._iy); const a=g.get(k); if(a)a.push(v); else g.set(k,[v]); });
@@ -3048,15 +3049,19 @@ function forceOrganic(vis){ if(vis.length<2) return; balloonLayout(vis); }   // 
    ~half the distance to its NEAREST neighbour, so any two grown circles still can't reach each other. */
 /* minimum box scale by depth in the BLOOM — bigger toward the centre so central boxes are readable/
    tappable; the balloon reserves space for it. Tree keeps fixed columns (scale 1). */
-function baseScale(v){ if(mode==='tree') return 1; const d=v.depth||0; return Math.max(1.2, 2.0-0.18*d); }
+function baseScale(v){ if(mode==='tree') return 1; const d=v.depth||0;
+  return d===0 ? 3.4 : Math.max(1.2, 2.2-0.2*d); }   // root is the big hub; inner big, tapering with depth
+/* how big a box may grow into its free space — much larger toward the centre (the root fills the void
+   between itself and its trunks, shortening those long spokes; deeper boxes taper toward the root size) */
+function fillCap(v){ const d=v.depth||0; return d===0 ? 7 : Math.max(2.4, 3.8-0.45*d); }
 function sizeToFill(vis){
   if(vis.length<2) return;
-  const MAX=2.0, cell=Math.max(80,NODE_W*MAX), K=(x,y)=>x+'|'+y, g=new Map();
+  const cell=Math.max(80,NODE_W*4), K=(x,y)=>x+'|'+y, g=new Map();
   vis.forEach(v=>{ v._ix=Math.round(v.cx/cell); v._iy=Math.round(v.cy/cell); const k=K(v._ix,v._iy); const a=g.get(k); if(a)a.push(v); else g.set(k,[v]); });
   vis.forEach(a=>{ const ah=Math.hypot(NODE_W,a.h||40)/2; let nearest=1e9;
     for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){ const arr=g.get(K(a._ix+dx,a._iy+dy)); if(!arr)continue;
       for(const b of arr){ if(b===a)continue; const d=Math.hypot(a.cx-b.cx,a.cy-b.cy); if(d<nearest)nearest=d; } }
-    a._scale = Math.max(baseScale(a), Math.min(MAX, nearest/(2*ah)*0.96)); });  // never below the depth minimum
+    a._scale = Math.max(baseScale(a), Math.min(fillCap(a), nearest/(2*ah)*0.96)); });  // never below depth-min, never above depth-cap
 }
 function computeLayout(visible){
   visible.forEach(v=>{ v._scale=baseScale(v); });         // depth-min size so the balloon reserves room; sizeToFill grows further
