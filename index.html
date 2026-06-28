@@ -2894,8 +2894,7 @@ function countDesc(n){ let c=0; (function w(x){ (x.children||[]).forEach(k=>{c++
 function applyTransform(){ world.style.transform='translate('+tx+'px,'+ty+'px) scale('+scale+')';
   // links keep a constant minimum SCREEN thickness at any zoom (world stroke = screenPx / scale)
   world.style.setProperty('--lw', Math.min(40, Math.max(1.6, 2.2/scale)).toFixed(2));   // ordinary links: ~2.2px on screen
-  world.style.setProperty('--fw', Math.min(80, Math.max(7, 10/scale)).toFixed(2));      // focus links: ~10px tap target
-  if(scale!==_lastSizScale && curVisible.length){ applyScreenSizing(); drawLinks(curVisible); } }   // re-fit box sizes to the new zoom (min size, shrink-on-crowd)
+  world.style.setProperty('--fw', Math.min(80, Math.max(7, 10/scale)).toFixed(2)); }    // focus links: ~10px tap target
 /* keep at least part of the content within the viewport after pan/zoom */
 function clampPan(){ const bb=world._bbox; if(!bb)return; const vw=viewport.clientWidth, vh=viewport.clientHeight;
   const m=Math.min(120, vw*0.4, vh*0.4);
@@ -3011,7 +3010,7 @@ const _SEPCAP=28;          // cap neighbours scanned per cell — bounds worst-c
 /* variable node size (organic only): shallower nodes are bigger (more room near the centre, and
    they're the important navigational anchors) → fills white space + readability, collision-aware */
 function nodeScale(v){ return v._scale||1; }   // LAYOUT scale (baseScale + sizeToFill); fixed per render
-function effScale(v){ return v._rs!=null ? v._rs : (v._scale||1); }   // RENDERED scale (screen-aware, set by applyScreenSizing)
+function effScale(v){ return v._scale||1; }    // zoom is uniform — boxes scale with the world, like a map
 function effW(v){ return NODE_W*effScale(v); }
 function effH(v){ return (v.h||40)*effScale(v); }
 function _sepStep(vis,gapX,gapY,strength){
@@ -3169,7 +3168,6 @@ function computeLayout(visible){
   }
   if(spread) sizeToFill(visible);                         // ⊙ Fill toggle: grow boxes into free space (overlap-free)
   resolveOverlaps(visible);                               // belt-and-suspenders box guarantee (no-op when already clean)
-  for(const a of visible){ let mn=Infinity; for(const b of visible){ if(b===a)continue; const d=Math.hypot(a.cx-b.cx,a.cy-b.cy); if(d<mn)mn=d; } a._near=mn; }   // nearest-neighbour dist → screen-aware sizing
   let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
   visible.forEach(v=>{ const hw=effW(v)/2, hh=effH(v)/2;     // use the GROWN box size so Fit frames everything
     x0=Math.min(x0,v.cx-hw); x1=Math.max(x1,v.cx+hw);
@@ -3180,27 +3178,7 @@ function computeLayout(visible){
 }
 function position(visible){
   visible.forEach(v=>{ const el=nodeEls[v.node.id]; if(!el)return; el.style.left=(v.cx-NODE_W/2)+'px'; el.style.top=(v.cy-v.h/2)+'px';
-    const s=effScale(v); el.style.transform = Math.abs(s-1)>0.001 ? 'scale('+s.toFixed(3)+')' : '';   // scales about centre so cx,cy stay correct
-  });
-}
-/* ---- screen-aware box sizing (zoom-reactive) ----
-   A box holds at least a minimum ON-SCREEN size as you zoom out (so it stays readable),
-   counter-scaling against the world transform — BUT never so much that it comes within
-   SCREEN_PAD of its nearest neighbour. When holding the minimum would break that gap, the
-   box shrinks instead (overlap-with-padding always wins). Isolated boxes keep their size
-   and may run off the edges — that's intended ("if they're offscreen, so be it"). */
-let _lastSizScale=null;
-function applyScreenSizing(){
-  if(!curVisible.length) return; _lastSizScale=scale;
-  const z=scale||1, minR=(mode==='focus'?66:46), pad=14;   // min on-screen circ-radius (px) · min screen gap (px)
-  curVisible.forEach(v=>{
-    const ls=v._scale||1, baseR=Math.hypot(NODE_W, v.h||40)/2;
-    const naturalScreenR=ls*baseR*z;                        // its size on screen at the layout scale
-    const near=(v._near!=null)?v._near:Infinity;            // world distance to nearest neighbour centre
-    const capR=(near===Infinity)?Infinity:Math.max(3,(near*z - pad)/2);   // biggest it may be without breaking the gap
-    const finalR=Math.min(Math.max(naturalScreenR, minR), capR);          // want ≥min, but ≤padding cap
-    v._rs=ls*(finalR/(naturalScreenR||1));                  // render scale = layout scale × the screen multiplier
-    const el=nodeEls[v.node.id]; if(el) el.style.transform = Math.abs(v._rs-1)>0.001 ? 'scale('+v._rs.toFixed(3)+')' : '';
+    const s=nodeScale(v); el.style.transform = Math.abs(s-1)>0.001 ? 'scale('+s.toFixed(3)+')' : '';   // scales about centre so cx,cy stay correct
   });
 }
 /* point on v's box border in the direction of (tx,ty) — so links exit/enter the FACING side */
@@ -3282,7 +3260,7 @@ function render(){
   curVisible=(mode==='focus')?buildFocus():buildVisible();
   if(!kbdId || !curVisible.some(v=>v.node.id===kbdId)) kbdId=curVisible[0].node.id;
   measure(curVisible); computeLayout(curVisible);
-  position(curVisible); applyScreenSizing(); drawLinks(curVisible); applyTransform();
+  position(curVisible); drawLinks(curVisible); applyTransform();
 }
 
 /* ---- keyboard navigation & accessibility (ARIA tree pattern) ---- */
