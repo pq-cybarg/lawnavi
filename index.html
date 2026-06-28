@@ -118,6 +118,7 @@
   /* ---- viewport / world ---- */
   #viewport{position:fixed;inset:var(--hdr,64px) 0 0 0;z-index:10;overflow:hidden;cursor:grab;touch-action:none;}
   #viewport.dragging{cursor:grabbing;}
+  #viewport.dragging,#viewport.dragging *{user-select:none;-webkit-user-select:none;cursor:grabbing!important;}
   #world{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform;}
   #links{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;}
   #links path{fill:none;stroke:var(--line);stroke-width:var(--lw,1.4);transition:stroke .2s,opacity .2s;}
@@ -2993,7 +2994,7 @@ function measure(visible){
       el.querySelector('.klabel').textContent=KIND_LABEL[n.kind]||'';
       el.querySelector('.title').textContent=n.name;
       el.querySelector('.blurb').textContent=n.summary||'';
-      el.addEventListener('click',e=>{ if(e.target.closest('.toggle'))return; el.focus({preventScroll:true}); onNodeActivate(el.dataset.id); });
+      el.addEventListener('click',e=>{ if(moved)return; if(e.target.closest('.toggle'))return; el.focus({preventScroll:true}); onNodeActivate(el.dataset.id); });
       el.tabIndex=-1; el.setAttribute('role','treeitem');
       el.addEventListener('keydown',e=>onNodeKey(e,el.dataset.id));
       el.addEventListener('focus',()=>{ kbdId=el.dataset.id; });
@@ -3228,7 +3229,7 @@ function placeChip(key,a,b,text,onClick,isBack,live){
   live.add(key);
   let el=edgeEls[key];
   if(!el){ el=document.createElement('button'); el.type='button'; el.className='elabel'+(isBack?' eback':'');
-    el.addEventListener('click',ev=>{ ev.stopPropagation(); onClick(); });
+    el.addEventListener('click',ev=>{ if(moved)return; ev.stopPropagation(); onClick(); });
     world.appendChild(el); edgeEls[key]=el; }
   el.textContent=text;
   const t=0.62, x=a[0]+(b[0]-a[0])*t, y=a[1]+(b[1]-a[1])*t;
@@ -3423,7 +3424,7 @@ function setMode(newMode){
 
 /* ---- pan & zoom ---- */
 let dragging=false,sx,sy,stx,sty,moved;
-viewport.addEventListener('mousedown',e=>{ if(e.target.closest('.node'))return;
+viewport.addEventListener('mousedown',e=>{ if(e.button!==0)return;   // pan from ANYWHERE (incl. over a node when zoomed in)
   dragging=true;moved=false;sx=e.clientX;sy=e.clientY;stx=tx;sty=ty;viewport.classList.add('dragging'); });
 window.addEventListener('mousemove',e=>{ if(!dragging)return;
   tx=stx+(e.clientX-sx); ty=sty+(e.clientY-sy); if(Math.abs(e.clientX-sx)+Math.abs(e.clientY-sy)>3)moved=true; clampPan(); applyTransform(); });
@@ -3447,14 +3448,15 @@ viewport.addEventListener('touchstart',e=>{
   if(e.touches.length>=2){ dragging=false; const r=viewport.getBoundingClientRect();
     const mx=(e.touches[0].clientX+e.touches[1].clientX)/2-r.left, my=(e.touches[0].clientY+e.touches[1].clientY)/2-r.top;
     pinch={d:tdist(e.touches)||1, s:scale, wx:(mx-tx)/scale, wy:(my-ty)/scale}; return; }
-  if(e.target.closest('.node'))return; const t=e.touches[0];
-  dragging=true;sx=t.clientX;sy=t.clientY;stx=tx;sty=ty;},{passive:true});
+  const t=e.touches[0];                                  // pan from anywhere (incl. over a node)
+  dragging=true;moved=false;sx=t.clientX;sy=t.clientY;stx=tx;sty=ty;},{passive:true});
 viewport.addEventListener('touchmove',e=>{
   if(pinch && e.touches.length>=2){ const r=viewport.getBoundingClientRect();
     const mx=(e.touches[0].clientX+e.touches[1].clientX)/2-r.left, my=(e.touches[0].clientY+e.touches[1].clientY)/2-r.top;
     const ns=Math.min(ZMAX,Math.max(ZMIN, pinch.s*(tdist(e.touches)/pinch.d)));
     scale=ns; tx=mx-pinch.wx*ns; ty=my-pinch.wy*ns; clampPan(); applyTransform(); return; }
   if(!dragging)return; const t=e.touches[0];
+  if(Math.abs(t.clientX-sx)+Math.abs(t.clientY-sy)>8)moved=true;
   tx=stx+(t.clientX-sx);ty=sty+(t.clientY-sy);clampPan();applyTransform();},{passive:true});
 viewport.addEventListener('touchend',e=>{
   if(e.touches.length<2) pinch=null;
