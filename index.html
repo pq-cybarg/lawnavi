@@ -107,6 +107,13 @@
   button.tool:hover{border-color:var(--line-bright);color:var(--ink);background:var(--panel-2);}
   button.tool:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
   button.tool.on{border-color:var(--gold);color:var(--gold-soft);background:rgba(193,154,79,.14);}
+  /* focus-mode "Reach" stepper */
+  .tool.fctl{display:inline-flex;align-items:center;gap:7px;padding:5px 9px;color:var(--gold-soft);
+    border-color:var(--gold);background:rgba(193,154,79,.10);}
+  .tool.fctl b{font-family:"Space Mono",monospace;font-size:13px;min-width:12px;text-align:center;color:var(--gold-soft);}
+  .tool.fctl button{width:24px;height:24px;border-radius:6px;border:1px solid var(--line-bright);background:var(--bg-2);
+    color:var(--gold-soft);font-size:15px;font-weight:700;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  .tool.fctl button:hover{background:var(--line-bright);color:var(--bg);}
 
   /* ---- viewport / world ---- */
   #viewport{position:fixed;inset:var(--hdr,64px) 0 0 0;z-index:10;overflow:hidden;cursor:grab;touch-action:none;}
@@ -115,6 +122,17 @@
   #links{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;}
   #links path{fill:none;stroke:var(--line);stroke-width:var(--lw,1.4);transition:stroke .2s,opacity .2s;}
   #links path.lit{stroke:var(--line-bright);stroke-width:calc(var(--lw,1.4)*1.3);}
+  /* focus mode: thick travel-lines + on-line chips (tap to move the focus) */
+  #links path.fedge{stroke:var(--line-bright);stroke-width:var(--fw,10);stroke-linecap:round;opacity:.5;transition:none;}
+  #links path.fback{stroke:var(--gold);stroke-dasharray:1 7;stroke-linecap:round;opacity:.85;}
+  .elabel{position:absolute;transform:translate(-50%,-50%);background:linear-gradient(180deg,var(--panel),var(--bg-2));
+    color:var(--gold-soft);border:1.5px solid var(--line-bright);border-radius:22px;padding:5px 13px;
+    font-family:"Space Mono",monospace;font-size:12.5px;font-weight:700;line-height:1;white-space:nowrap;
+    cursor:pointer;pointer-events:auto;z-index:6;box-shadow:0 5px 16px rgba(0,0,0,.45);
+    transition:background .12s,color .12s,transform .1s;}
+  .elabel:hover{background:var(--line-bright);color:var(--bg);}
+  .elabel.eback{color:var(--gold);border-color:var(--gold);background:linear-gradient(180deg,#231d10,#16120a);}
+  .elabel.eback:hover{background:var(--gold);color:var(--bg);}
 
   /* ---- nodes ---- */
   .node{position:absolute;width:var(--node-w,234px);background:linear-gradient(180deg,var(--panel),var(--bg-2));
@@ -133,6 +151,12 @@
     box-shadow:0 0 0 2px var(--gold),0 16px 42px rgba(0,0,0,.62);}
   .node:focus{outline:none;}
   .node.kbd,.node.selected,.node:hover{opacity:1!important;}
+  /* focus-mode emphasis: the centre is the hub; the back node is a quiet "up" tab */
+  .node.ffocus{z-index:70;border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,162,39,.55),0 18px 46px rgba(0,0,0,.6);}
+  .node.fbacknode{opacity:.9;border-style:dashed;border-color:var(--gold);}
+  .node.fbacknode .blurb{display:none;}
+  .node.fbacknode::before{content:"↑ up to";font-family:"Space Mono",monospace;font-size:8.5px;letter-spacing:.15em;
+    text-transform:uppercase;color:var(--gold);display:block;margin-bottom:2px;}
   .node .kind{font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.18em;
     text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;display:flex;align-items:center;gap:6px;}
   .node .kind .dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;}
@@ -549,6 +573,9 @@
       <button class="tool" id="btnPrec" title="See what relies on a precedent / clause, and the overturn blast radius">⟐ Precedents</button>
       <button class="tool" id="btnLens" title="Re-root the map on any subject and invert the hierarchy — drill down to the foundations it rests on, or roll up to everything that rests on it, through whichever perspective you choose">🧭 Lens</button>
       <button class="tool" id="btnMode">◐ Radial view</button>
+      <button class="tool" id="btnFocus" title="Focus mode (E): explore one topic and the items right around it — tap a line to travel to the next, ↑ up to go back. Best on mobile.">◎ Focus</button>
+      <span class="tool fctl" id="focusCtl" style="display:none" title="How many rings of sub-items to show around the focus (smaller = simpler, better on mobile)">Reach
+        <button id="stepsDn" aria-label="Fewer rings">−</button><b id="stepsN">1</b><button id="stepsUp" aria-label="More rings">+</button></span>
       <button class="tool" id="btnSpread" title="Fill empty space: grow boxes into the free room around them (organic/radial), capped at the root box size">⊙ Fill</button>
       <button class="tool" id="btnZout" title="Zoom out (−)">&minus;</button>
       <button class="tool" id="btnZin" title="Zoom in (+)">+</button>
@@ -2847,12 +2874,15 @@ let collapsed = new Set();
 })(DATA);
 
 let tx=0, ty=0, scale=1;
-let mode='tree';          // 'tree' = hierarchy · 'radial' = DAG bloom · 'force' = organic (balloon)
+let mode='tree';          // 'tree' = hierarchy · 'force' = organic (balloon) · 'focus' = neighbourhood explorer
 let spread=true;          // flocking/avoidance: separation pass over tree & radial
 let viewRoot='root';      // for Isolate
+let focusId='root';       // focus mode: the node at the centre of the neighbourhood
+let focusSteps=1;         // focus mode: how many rings of descendants to show (bounds reach on mobile)
 let selectedId=null;
 let kbdId=null;           // keyboard-navigation cursor
 let nodeEls={};
+let edgeEls={};           // focus mode: HTML link-chips (tap a line to travel)
 let curVisible=[];
 let animating=false;
 let searchActive=false;
@@ -2862,7 +2892,9 @@ const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 
 function countDesc(n){ let c=0; (function w(x){ (x.children||[]).forEach(k=>{c++;w(k);}); })(n); return c; }
 function applyTransform(){ world.style.transform='translate('+tx+'px,'+ty+'px) scale('+scale+')';
-  world.style.setProperty('--lw', Math.max(1.2, 1.5/scale).toFixed(2)); }   // links keep a min SCREEN thickness at any zoom
+  // links keep a constant minimum SCREEN thickness at any zoom (world stroke = screenPx / scale)
+  world.style.setProperty('--lw', Math.min(40, Math.max(1.6, 2.2/scale)).toFixed(2));   // ordinary links: ~2.2px on screen
+  world.style.setProperty('--fw', Math.min(80, Math.max(7, 10/scale)).toFixed(2)); }    // focus links: ~10px tap target
 /* keep at least part of the content within the viewport after pan/zoom */
 function clampPan(){ const bb=world._bbox; if(!bb)return; const vw=viewport.clientWidth, vh=viewport.clientHeight;
   const m=Math.min(120, vw*0.4, vh*0.4);
@@ -2882,6 +2914,56 @@ function buildVisible(){
   })(rootNode,0,null);
   return visible;
 }
+/* ---- focus / neighbourhood explorer ----
+   Build just the local map: the focused node at the centre, its descendants out to
+   `focusSteps` rings, plus a single "back" node (its parent) for travelling up the
+   hierarchy. Everything else stays out of the DOM, so it's always tractable on mobile. */
+function buildFocus(){
+  const rec=byId[focusId]||byId['root']; const fn=rec.node;
+  const visible=[];
+  const root={node:fn,depth:0,parent:null,children:[],h:60,cx:0,cy:0};
+  visible.push(root);
+  (function walk(v,n,depth){
+    if(depth>=focusSteps){ return; }                 // ring limit: deeper nodes are reached by tapping
+    (n.children||[]).forEach(c=>{ const cv={node:c,depth:depth+1,parent:v,children:[],h:60,cx:0,cy:0};
+      v.children.push(cv); visible.push(cv); walk(cv,c,depth+1); });
+  })(root,fn,0);
+  const par=rec.parent;                              // the parent NODE (byId record's .parent)
+  if(par){ visible.push({node:par,depth:-1,parent:null,children:[],h:60,cx:0,cy:0,_back:true}); root._hasBack=true; }
+  return visible;
+}
+/* overlap-free radial layout for focus mode: descendants bloom DOWNWARD/outward from the
+   centre (nested circumscribed-circle bubbles, like balloonLayout) while the top wedge is
+   kept clear for the "back" link, which sits just above the focus. */
+function focusLayout(visible){
+  const root=visible.find(v=>v.depth===0)||visible[0];
+  const boxR=v=>Math.hypot(effW(v),effH(v))/2;
+  (function measureR(v){
+    const kids=v.children||[];
+    if(!kids.length){ v._R=boxR(v); v._ring=0; return; }
+    kids.forEach(measureR);
+    const maxCR=Math.max.apply(null,kids.map(c=>c._R));
+    const gap=NODE_W*(0.40+0.10*(v.depth||0));
+    const avail=(v===root) ? (root._hasBack ? 1.70*Math.PI : 2*Math.PI) : 1.5*Math.PI;
+    let rho=boxR(v)+maxCR+gap;
+    for(let it=0; it<90; it++){ let sum=0, ok=true;
+      for(const c of kids){ const r=c._R/rho; if(r>=0.999){ok=false;break;} sum+=2*Math.asin(r); }
+      if(ok && sum<=avail) break; rho*=1.12; }
+    v._ring=rho;
+    const needs=kids.map(c=>2*Math.asin(Math.min(0.999,c._R/rho)));
+    const total=needs.reduce((a,b)=>a+b,0);
+    const extra=Math.max(0,(avail-total)/kids.length);
+    let acc=-(total+extra*kids.length)/2;
+    kids.forEach((c,i)=>{ const slice=needs[i]+extra; c._mid=acc+slice/2; acc+=slice; });
+    v._R=rho+maxCR;
+  })(root);
+  (function place(v,x,y,outDir){
+    v.cx=x; v.cy=y;
+    (v.children||[]).forEach(c=>{ const a=outDir+c._mid; place(c, x+v._ring*Math.cos(a), y+v._ring*Math.sin(a), a); });
+  })(root, 0, 0, root._hasBack ? Math.PI/2 : -Math.PI/2);   // bloom downward so the top stays free for "back"
+  const back=visible.find(v=>v._back);
+  if(back){ back.cx=0; back.cy=-(boxR(root)+NODE_W*0.85+effH(back)/2); }
+}
 function measure(visible){
   const liveIds=new Set(visible.map(v=>v.node.id));
   Object.keys(nodeEls).forEach(id=>{ if(!liveIds.has(id)){ nodeEls[id].remove(); delete nodeEls[id]; }});
@@ -2897,18 +2979,21 @@ function measure(visible){
       el.querySelector('.klabel').textContent=KIND_LABEL[n.kind]||'';
       el.querySelector('.title').textContent=n.name;
       el.querySelector('.blurb').textContent=n.summary||'';
-      el.addEventListener('click',e=>{ if(e.target.closest('.toggle'))return; el.focus({preventScroll:true}); openPanel(el.dataset.id); });
+      el.addEventListener('click',e=>{ if(e.target.closest('.toggle'))return; el.focus({preventScroll:true}); onNodeActivate(el.dataset.id); });
       el.tabIndex=-1; el.setAttribute('role','treeitem');
       el.addEventListener('keydown',e=>onNodeKey(e,el.dataset.id));
       el.addEventListener('focus',()=>{ kbdId=el.dataset.id; });
       nodeEls[n.id]=el; world.appendChild(el);
     }
     let tog=el.querySelector('.toggle');
-    if(hasKids){
+    const showTog = hasKids && mode!=='focus';            // focus mode: travel by tapping the lines, not by expanding
+    if(showTog){
       if(!tog){ tog=document.createElement('button'); tog.className='toggle'; tog.tabIndex=-1; tog.setAttribute('aria-hidden','true');
         tog.addEventListener('click',e=>{e.stopPropagation(); toggle(n.id);}); el.appendChild(tog); }
       tog.innerHTML=(isOpen?'&minus;':'+')+'<span class="cnt">'+countDesc(n)+'</span>';
     } else if(tog){ tog.remove(); }
+    el.classList.toggle('ffocus', mode==='focus' && !v._back && n.id===focusId);
+    el.classList.toggle('fbacknode', !!v._back);
     el.classList.toggle('selected',n.id===selectedId);
     el.classList.toggle('match',hiMatch.has(n.id));
     el.classList.toggle('path',searchActive&&hiPath.has(n.id)&&!hiMatch.has(n.id));
@@ -3049,11 +3134,14 @@ function forceOrganic(vis){ if(vis.length<2) return; balloonLayout(vis); }   // 
    ~half the distance to its NEAREST neighbour, so any two grown circles still can't reach each other. */
 /* minimum box scale by depth in the BLOOM — bigger toward the centre so central boxes are readable/
    tappable; the balloon reserves space for it. Tree keeps fixed columns (scale 1). */
-function baseScale(v){ if(mode==='tree') return 1; const d=v.depth||0;
+function baseScale(v){ if(mode==='tree') return 1;
+  if(mode==='focus'){ if(v._back) return 1.5; return v.depth===0 ? 3.0 : Math.max(1.5, 2.6-0.45*v.depth); }
+  const d=v.depth||0;
   return d===0 ? 3.4 : Math.max(1.2, 2.2-0.2*d); }   // root is the big hub; inner big, tapering with depth
 /* how big a box may grow into its free space — much larger toward the centre (the root fills the void
    between itself and its trunks, shortening those long spokes; deeper boxes taper toward the root size) */
-function fillCap(v){ const d=v.depth||0; return d===0 ? 8 : Math.max(3.6, 5.4-0.4*d); }   // grow further into empty space
+function fillCap(v){ if(mode==='focus'){ return v._back ? 2.0 : (v.depth===0 ? 4.5 : 3.2); }
+  const d=v.depth||0; return d===0 ? 8 : Math.max(3.6, 5.4-0.4*d); }   // grow further into empty space
 function sizeToFill(vis){
   if(vis.length<2) return;
   const cell=Math.max(80,NODE_W*4), K=(x,y)=>x+'|'+y, g=new Map();
@@ -3065,7 +3153,9 @@ function sizeToFill(vis){
 }
 function computeLayout(visible){
   visible.forEach(v=>{ v._scale=baseScale(v); });         // depth-min size so the balloon reserves room; sizeToFill grows further
-  if(mode==='tree'){
+  if(mode==='focus'){
+    focusLayout(visible);                                 // local neighbourhood: centre + rings + back link
+  } else if(mode==='tree'){
     let cursor=0;
     (function place(v){
       v.cx=v.depth*(NODE_W+H_GAP)+NODE_W/2;
@@ -3114,7 +3204,41 @@ function bestPorts(P,C,boxes){ const ps=_sides(P), cs=_sides(C); let best=null,b
     const sc=Math.hypot(e[0]-x[0],e[1]-x[1]) + 9*_linkPen(e[0],e[1],x[0],x[1],boxes,P,C);
     if(sc<bs){ bs=sc; best=[e,x]; } }
   return best; }
+/* remove all focus link-chips (when leaving focus mode or re-rendering) */
+function clearEdgeEls(live){ Object.keys(edgeEls).forEach(k=>{ if(!live||!live.has(k)){ edgeEls[k].remove(); delete edgeEls[k]; } }); }
+/* place/update a clickable chip sitting ON a link, ~62% of the way toward the far node */
+function placeChip(key,a,b,text,onClick,isBack,live){
+  live.add(key);
+  let el=edgeEls[key];
+  if(!el){ el=document.createElement('button'); el.type='button'; el.className='elabel'+(isBack?' eback':'');
+    el.addEventListener('click',ev=>{ ev.stopPropagation(); onClick(); });
+    world.appendChild(el); edgeEls[key]=el; }
+  el.textContent=text;
+  const t=0.62, x=a[0]+(b[0]-a[0])*t, y=a[1]+(b[1]-a[1])*t;
+  el.style.left=x+'px'; el.style.top=y+'px';
+}
+function focusChipText(c){ const n=countDesc(c.node); return n>0 ? (n+' ▸') : 'open'; }
+/* focus mode: thick tappable lines + on-line chips describing the subnet on the other side,
+   plus a dashed "back" line up to the parent. Tapping a line/chip travels the focus. */
+function drawFocusLinks(visible){
+  let p=''; const live=new Set(); const root=visible.find(v=>v.depth===0)||visible[0];
+  visible.forEach(v=>{ if(v._back) return; v.children.forEach(c=>{
+    const a=_border(v,c.cx,c.cy), b=_border(c,v.cx,v.cy);
+    p+='<path class="fedge" d="M'+a[0]+' '+a[1]+' L'+b[0]+' '+b[1]+'"></path>';
+    const cc=c; placeChip(v.node.id+'>'+c.node.id, a, b, focusChipText(c), ()=>setFocus(cc.node.id), false, live);
+  }); });
+  const back=visible.find(v=>v._back);
+  if(back){ const a=_border(root,back.cx,back.cy), b=_border(back,root.cx,root.cy);
+    p+='<path class="fedge fback" d="M'+a[0]+' '+a[1]+' L'+b[0]+' '+b[1]+'"></path>';
+    placeChip('back>'+back.node.id, a, b, '↑ up', ()=>setFocus(back.node.id), true, live); }
+  linksSvg.innerHTML=p;
+  const bb=world._bbox; linksSvg.setAttribute('width',bb.x1+PAD); linksSvg.setAttribute('height',bb.y1+PAD);
+  world._bounds={w:bb.x1+PAD,h:bb.y1+PAD};
+  clearEdgeEls(live);
+}
 function drawLinks(visible){
+  if(mode==='focus'){ drawFocusLinks(visible); return; }
+  if(Object.keys(edgeEls).length) clearEdgeEls(null);          // shed focus chips in other modes
   let p='';
   const scorePorts = (mode==='tree' && visible.length<=700);   // penalty-scored side selection (tree; capped for perf)
   visible.forEach(v=>v.children.forEach(c=>{
@@ -3132,7 +3256,7 @@ function drawLinks(visible){
   world._bounds={w:bb.x1+PAD,h:bb.y1+PAD};
 }
 function render(){
-  curVisible=buildVisible();
+  curVisible=(mode==='focus')?buildFocus():buildVisible();
   if(!kbdId || !curVisible.some(v=>v.node.id===kbdId)) kbdId=curVisible[0].node.id;
   measure(curVisible); computeLayout(curVisible);
   position(curVisible); drawLinks(curVisible); applyTransform();
@@ -3166,7 +3290,8 @@ function onNodeKey(e,id){
     case 'ArrowLeft': e.preventDefault(); if(open){ toggle(id); navTo(id); } else if(v.parent){ navTo(v.parent.node.id); } break;
     case 'Home':      e.preventDefault(); navTo(curVisible[0].node.id); break;
     case 'End':       e.preventDefault(); navTo(curVisible[curVisible.length-1].node.id); break;
-    case 'Enter': case ' ': e.preventDefault(); openPanel(id); break;
+    case 'Backspace': if(mode==='focus'){ e.preventDefault(); const r=byId[focusId]; if(r&&r.parent) setFocus(r.parent.id); } break;
+    case 'Enter': case ' ': e.preventDefault(); onNodeActivate(id); break;
   }
 }
 
@@ -3211,9 +3336,47 @@ function toggle(id){
 function updateModeBtns(){
   const bm=document.getElementById('btnMode'); if(bm) bm.textContent = mode==='tree' ? '✦ Bloom view' : '◑ Tree view';
   const bs=document.getElementById('btnSpread'); if(bs) bs.classList.toggle('on',spread);
+  const bf=document.getElementById('btnFocus'); if(bf) bf.classList.toggle('on',mode==='focus');
+  const fc=document.getElementById('focusCtl'); if(fc) fc.style.display = mode==='focus' ? '' : 'none';
+  const sn=document.getElementById('stepsN'); if(sn) sn.textContent=focusSteps;
+}
+/* ---- focus mode: travel between neighbourhoods ---- */
+function onNodeActivate(id){                              // a node box was tapped
+  if(mode==='focus'){ if(id===focusId) openPanel(id); else setFocus(id); return; }
+  openPanel(id);
+}
+function focusFrame(){                                    // target camera: frame the neighbourhood, readable, centred
+  const bb=world._bbox; const vw=viewport.clientWidth, vh=viewport.clientHeight;
+  const w=bb.x1-bb.x0, h=bb.y1-bb.y0;
+  const s=Math.min(1.3, Math.max(ZMIN, Math.min((vw-90)/w,(vh-90)/h)));
+  return {scale:s, tx:(vw-w*s)/2-bb.x0*s, ty:(vh-h*s)/2-bb.y0*s};
+}
+function tweenTo(t1,dur){
+  const t0=performance.now(), s0=scale, x0=tx, y0=ty; animating=true;
+  (function fr(now){ const k=Math.min(1,(now-t0)/dur), e=ease(k);
+    scale=s0+(t1.scale-s0)*e; tx=x0+(t1.tx-x0)*e; ty=y0+(t1.ty-y0)*e; applyTransform();
+    if(k<1) requestAnimationFrame(fr); else { scale=t1.scale; tx=t1.tx; ty=t1.ty; applyTransform(); animating=false; } })(t0);
+}
+/* re-root the neighbourhood on `id` and glide there: the tapped node holds its screen
+   position at the moment of the tap, then everything reflows and flies to centre. */
+function setFocus(id,opts){
+  if(!byId[id] || animating) return;
+  if(typeof LENS!=='undefined'&&LENS.active()) LENS.exit();
+  if(viewRoot!=='root') exitIsolate();
+  const entering = (mode!=='focus');
+  // where is the tapped node on screen right now (for continuity)?
+  let anchor=null; if(!entering){ const cur=curVisible.find(v=>v.node.id===id); if(cur) anchor={sx:tx+cur.cx*scale, sy:ty+cur.cy*scale}; }
+  mode='focus'; focusId=id; collapsed.delete(id);
+  render();
+  const nf=curVisible.find(v=>v.node.id===id && !v._back) || curVisible[0];
+  if(entering || !anchor){ const t=focusFrame(); scale=t.scale; tx=t.tx; ty=t.ty; applyTransform(); }
+  else { tx=anchor.sx-nf.cx*scale; ty=anchor.sy-nf.cy*scale; applyTransform(); tweenTo(focusFrame(), 480); }
+  if(!(opts&&opts.noPanel)) openPanel(id); else { selectedId=id; setKbd(id,false); }
+  updateModeBtns();
 }
 function setMode(newMode){
   if(animating||newMode===mode) return;
+  if(mode==='focus' || newMode==='focus'){ if(newMode==='focus'){ setFocus(selectedId&&byId[selectedId]?selectedId:focusId); return; } mode=newMode; updateModeBtns(); render(); fit(); return; }
   if(newMode==='force'||mode==='force'){ mode=newMode; updateModeBtns(); render(); fit(); return; }
   const dir=newMode==='radial'?1:-1, visible=curVisible;
   const from=visible.map(v=>({cx:v.cx,cy:v.cy}));
@@ -3375,6 +3538,8 @@ function openPanel(id){
   document.getElementById('ptitle').textContent=n.name;
   document.getElementById('pplain').textContent=n.summary||'';
   let det='';
+  if(!String(id).startsWith('lens:') && byId[id] && !(mode==='focus'&&id===focusId))
+    det+='<button class="refbtn" data-focus="'+escapeHtml(id)+'">◎ Explore from here — map this topic and what surrounds it</button>';
   if(n._real && byId[n._real]) det+='<button class="refbtn" data-lensreal="'+n._real+'">↗ Open “'+escapeHtml(byId[n._real].node.name)+'” in the full map</button>';
   if(n._ref && n._jump && byId[n._jump]) det+='<button class="refbtn" data-lensjump="'+n._jump+'">↑ Go to where this is expanded in the view</button>';
   if(n.ref && byId[n.ref]) det+='<button class="refbtn" data-go="'+n.ref+'">↪ Open the full “'+escapeHtml(byId[n.ref].node.name)+'” branch &amp; unfold its items</button>';
@@ -3384,6 +3549,7 @@ function openPanel(id){
   det+=metaBlock('history','Historical result &amp; significance',n.history);
   if(n.cites && n.cites.length){ det+='<div style="margin-top:12px">'+n.cites.map(c=>{ const k=(typeof PRECW!=='undefined')?PRECW.keyOf(c):null, link=k&&PRECW.has(k); return '<span class="cite'+(link?' cite-link':'')+'"'+(link?(' data-prec="'+escapeHtml(k)+'" title="See what relies on this — and the overturn impact"'):'')+'>'+escapeHtml(c)+'</span>'; }).join('')+'</div>'; }
   const pdet=document.getElementById('pdetail'); pdet.innerHTML=det;
+  pdet.querySelectorAll('[data-focus]').forEach(a=>a.addEventListener('click',()=>setFocus(a.getAttribute('data-focus'))));
   pdet.querySelectorAll('[data-go]').forEach(a=>a.addEventListener('click',()=>gotoNode(a.dataset.go)));
   pdet.querySelectorAll('[data-prec]').forEach(a=>a.addEventListener('click',()=>{ if(typeof PRECW!=='undefined') PRECW.show(a.getAttribute('data-prec')); }));
   pdet.querySelectorAll('[data-lensreal]').forEach(a=>a.addEventListener('click',()=>{ if(typeof LENS!=='undefined') LENS.exit(); gotoNode(a.getAttribute('data-lensreal')); }));
@@ -3528,6 +3694,10 @@ document.getElementById('btnCollapse').addEventListener('click',()=>{
 });
 document.getElementById('btnFit').addEventListener('click',fit);
 document.getElementById('btnMode').addEventListener('click',()=>setMode(mode==='tree'?'force':'tree'));
+document.getElementById('btnFocus').addEventListener('click',()=>setMode(mode==='focus'?'tree':'focus'));
+function setSteps(n){ focusSteps=Math.max(1,Math.min(3,n)); updateModeBtns(); if(mode==='focus'){ render(); const t=focusFrame(); scale=t.scale; tx=t.tx; ty=t.ty; applyTransform(); } }
+document.getElementById('stepsDn').addEventListener('click',()=>setSteps(focusSteps-1));
+document.getElementById('stepsUp').addEventListener('click',()=>setSteps(focusSteps+1));
 document.getElementById('btnSpread').addEventListener('click',()=>{ spread=!spread; updateModeBtns(); render(); fit(); });
 updateModeBtns();
 document.getElementById('btnZin').addEventListener('click',()=>zoomBy(1.2));
@@ -3544,9 +3714,11 @@ window.addEventListener('keydown',e=>{
   if(e.key==='+'||e.key==='=') zoomBy(1.15);
   else if(e.key==='-'||e.key==='_') zoomBy(1/1.15);
   else if(e.key==='r'||e.key==='R') setMode(mode==='tree'?'force':'tree');
+  else if(e.key==='e'||e.key==='E') setMode(mode==='focus'?'tree':'focus');
   else if(e.key==='f'||e.key==='F') fit();
-  else if(e.key===']') expandLevel();
-  else if(e.key==='[') collapseLevel();
+  else if(e.key==='Backspace' && mode==='focus'){ const r=byId[focusId]; if(r&&r.parent){ e.preventDefault(); setFocus(r.parent.id); } }
+  else if(mode!=='focus' && e.key===']') expandLevel();
+  else if(mode!=='focus' && e.key==='[') collapseLevel();
   else if(e.key==='Escape'){ if(viewRoot!=='root') exitIsolate();
     else if(panel.classList.contains('open')){ document.getElementById('pclose').click(); }
     else if(searchEl.value){ searchEl.value=''; searchEl.dispatchEvent(new Event('input')); } }
@@ -3557,7 +3729,8 @@ document.getElementById('intro').addEventListener('click',function(){
   this.style.opacity='0';
   setTimeout(()=>{ this.style.display='none'; },600);
   render();
-  setTimeout(()=>{ openPanel('const'); focusNode('const',0.85); },120);
+  // small screens open straight into the focus explorer (tractable on mobile); desktop keeps the overview
+  setTimeout(()=>{ if(window.innerWidth<=760){ setFocus('const',{noPanel:true}); } else { openPanel('const'); focusNode('const',0.85); } },120);
 });
 
 /* boot */
