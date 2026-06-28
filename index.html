@@ -518,9 +518,13 @@
     #navToggle{display:inline-flex;}
     #toolbtns{display:none;order:10;flex-basis:100%;justify-content:flex-start;margin-top:2px;}
     #toolbtns.open{display:flex;}
-    #panel{top:auto;bottom:0;left:0;width:100%;height:62vh;border-left:none;border-top:1px solid var(--line);
-      border-radius:14px 14px 0 0;transform:translateY(100%);}
+    #panel{top:auto;bottom:0;left:0;width:100%;height:var(--sheetH,62vh);max-height:calc(100dvh - var(--hdr,64px));
+      display:flex;flex-direction:column;border-left:none;border-top:1px solid var(--line);
+      border-radius:14px 14px 0 0;transform:translateY(100%);transition:transform .25s ease,height .22s ease;}
     #panel.open{transform:translateY(0);}
+    #panel.sheet-drag{transition:none;}                 /* follow the finger 1:1 while dragging */
+    #panel .pbar{flex:0 0 auto;touch-action:none;cursor:grab;}  /* drag-handle: we own the vertical gesture */
+    #panel .pbody{flex:1 1 auto;min-height:0;}           /* scrolls within whatever height the sheet is */
     /* smaller, more readable panel text on phones */
     #panel .pbody{padding:6px 16px 22px;}
     #panel h2{font-size:18px;margin:4px 0 10px;}
@@ -2953,7 +2957,7 @@ function focusLayout(visible){
     if(!kids.length){ v._R=boxR(v); v._ring=0; return; }
     kids.forEach(measureR);
     const maxCR=Math.max.apply(null,kids.map(c=>c._R));
-    const gap=NODE_W*(0.40+0.10*(v.depth||0));
+    const gap=NODE_W*(0.16+0.04*(v.depth||0));                 // tight — pull the neighbourhood close to the centre
     const avail=(v===root) ? (root._hasBack ? 1.70*Math.PI : 2*Math.PI) : 1.5*Math.PI;
     let rho=boxR(v)+maxCR+gap;
     for(let it=0; it<90; it++){ let sum=0, ok=true;
@@ -3146,7 +3150,7 @@ function forceOrganic(vis){ if(vis.length<2) return; balloonLayout(vis); }   // 
 /* minimum box scale by depth in the BLOOM — bigger toward the centre so central boxes are readable/
    tappable; the balloon reserves space for it. Tree keeps fixed columns (scale 1). */
 function baseScale(v){ if(mode==='tree') return 1;
-  if(mode==='focus'){ if(v._back) return 1.5; return v.depth===0 ? 3.0 : Math.max(1.5, 2.6-0.45*v.depth); }
+  if(mode==='focus'){ if(v._back) return 1.8; return v.depth===0 ? 3.6 : Math.max(2.4, 3.3-0.4*v.depth); }   // big centre + big surrounding boxes
   const d=v.depth||0;
   return Math.max(2.0, 3.0-0.25*d); }   // gentle, monotonic taper — every depth stays readable (root not a giant)
 /* how big a box may grow into its free space — generous so boxes USE the gaps, but monotonic-clamped to
@@ -3178,7 +3182,7 @@ function computeLayout(visible){
   } else {
     balloonLayout(visible);                               // radial AND organic: compact clean balloon — no piles
   }
-  if(spread) sizeToFill(visible);                         // ⊙ Fill toggle: grow boxes into free space (overlap-free)
+  if(spread && mode!=='focus') sizeToFill(visible);       // ⊙ Fill (bloom): grow boxes into free space; focus uses direct sizes
   resolveOverlaps(visible);                               // belt-and-suspenders box guarantee (no-op when already clean)
   let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
   visible.forEach(v=>{ const hw=effW(v)/2, hh=effH(v)/2;     // use the GROWN box size so Fit frames everything
@@ -3756,11 +3760,30 @@ function setHdr(){ const hh=document.querySelector('header'); if(hh) document.do
 setHdr();
 window.addEventListener('resize',()=>{ setHdr(); if(sizeForViewport()) render(); clampPan(); applyTransform(); });
 if(window.ResizeObserver){ try{ new ResizeObserver(setHdr).observe(document.querySelector('header')); }catch(e){} }
-/* mobile: swipe the panel header down to dismiss the bottom sheet */
-(function(){ const p=document.getElementById('panel'); if(!p)return; const bar=p.querySelector('.pbar'); if(!bar)return; let y0=null,dy=0;
-  bar.addEventListener('touchstart',e=>{ if(window.innerWidth>760||!p.classList.contains('open'))return; y0=e.touches[0].clientY; dy=0; p.style.transition='none'; },{passive:true});
-  bar.addEventListener('touchmove',e=>{ if(y0==null)return; dy=e.touches[0].clientY-y0; if(dy>0) p.style.transform='translateY('+dy+'px)'; },{passive:true});
-  bar.addEventListener('touchend',()=>{ if(y0==null)return; p.style.transition=''; p.style.transform=''; if(dy>90){ const pc=document.getElementById('pcollapse'); if(pc) pc.click(); } y0=null; dy=0; }); })();
+/* mobile: drag the panel's top bar to resize the bottom sheet.
+   Release near the navbar → dock it full-height (top latches to the navbar); drag back down to undock.
+   Release with the sheet shrunk into the bottom ~10% → it slides offscreen and folds (reopen via the tab). */
+(function(){ const p=document.getElementById('panel'); if(!p) return; const bar=p.querySelector('.pbar'); if(!bar) return;
+  let y0=null, startH=0, curH=0;
+  const hdr=()=> (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hdr'))||64);
+  const full=()=> window.innerHeight - hdr();
+  bar.addEventListener('touchstart',e=>{
+    if(window.innerWidth>760 || !p.classList.contains('open')) return;
+    if(e.target.closest('button')) return;                       // leave the bar's buttons tappable
+    y0=e.touches[0].clientY; startH=p.getBoundingClientRect().height; curH=startH; p.classList.add('sheet-drag');
+  },{passive:true});
+  bar.addEventListener('touchmove',e=>{
+    if(y0==null) return; e.preventDefault();                     // own the gesture (don't scroll the page)
+    curH=Math.max(48, Math.min(full(), startH + (y0 - e.touches[0].clientY)));   // drag up grows, down shrinks
+    p.style.setProperty('--sheetH', curH+'px');
+  },{passive:false});
+  bar.addEventListener('touchend',()=>{
+    if(y0==null) return; y0=null; p.classList.remove('sheet-drag');
+    const vh=window.innerHeight, topY=vh-curH;                   // where the sheet's top edge landed
+    if(topY <= hdr()+vh*0.14){ p.style.setProperty('--sheetH', full()+'px'); }   // near navbar → dock full
+    else if(curH <= vh*0.12){ p.style.removeProperty('--sheetH'); const pc=document.getElementById('pcollapse'); if(pc) pc.click(); }   // near bottom → close
+    else { p.style.removeProperty('--sheetH'); }                 // middle → snap to default height
+  }); })();
 /* foldable/dismissible chrome: legalbar X, footbar fold→⚠, legend fold→Levels tab (all persisted) */
 (function(){
   const get=k=>{try{return localStorage.getItem(k)}catch(e){return null}}, set=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
