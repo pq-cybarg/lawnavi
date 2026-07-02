@@ -2890,6 +2890,7 @@ let spread=true;          // flocking/avoidance: separation pass over tree & rad
 let viewRoot='root';      // for Isolate
 let focusId='root';       // focus mode: the node at the centre of the neighbourhood
 let focusSteps=1;         // focus mode: how many rings of descendants to show (bounds reach on mobile)
+let focusPos={};          // focus mode: persisted node positions → adding a Reach ring never moves existing nodes
 let selectedId=null;
 let kbdId=null;           // keyboard-navigation cursor
 let nodeEls={};
@@ -2947,18 +2948,18 @@ function buildFocus(){
   if(par){ visible.push({node:par,depth:-1,parent:null,children:[],h:60,cx:0,cy:0,_back:true}); root._hasBack=true; }
   return visible;
 }
-/* overlap-free radial layout for focus mode: descendants bloom DOWNWARD/outward from the
-   centre (nested circumscribed-circle bubbles, like balloonLayout) while the top wedge is
-   kept clear for the "back" link, which sits just above the focus. */
-function focusLayout(visible){
-  const root=visible.find(v=>v.depth===0)||visible[0];
+/* Focus layout = ANCHORED radial. A FRESH focus lays the current neighbourhood out as a compact
+   balloon (each subtree its own bubble, overlap-free). Changing Reach does NOT relayout: existing
+   nodes keep their saved positions (focusPos) and only the NEW ring blooms outward from its (pinned)
+   parents - so adding a layer can never push the inner layers away. */
+function balloonFocus(root){
   const boxR=v=>Math.hypot(effW(v),effH(v))/2;
-  (function measureR(v){
+  (function measure(v){
     const kids=v.children||[];
     if(!kids.length){ v._R=boxR(v); v._ring=0; return; }
-    kids.forEach(measureR);
+    kids.forEach(measure);
     const maxCR=Math.max.apply(null,kids.map(c=>c._R));
-    const gap=NODE_W*(0.16+0.04*(v.depth||0));                 // tight — pull the neighbourhood close to the centre
+    const gap=NODE_W*(0.16+0.05*(v.depth||0));
     const avail=(v===root) ? (root._hasBack ? 1.70*Math.PI : 2*Math.PI) : 1.5*Math.PI;
     let rho=boxR(v)+maxCR+gap;
     for(let it=0; it<90; it++){ let sum=0, ok=true;
@@ -2966,8 +2967,7 @@ function focusLayout(visible){
       if(ok && sum<=avail) break; rho*=1.12; }
     v._ring=rho;
     const needs=kids.map(c=>2*Math.asin(Math.min(0.999,c._R/rho)));
-    const total=needs.reduce((a,b)=>a+b,0);
-    const extra=Math.max(0,(avail-total)/kids.length);
+    const total=needs.reduce((a,b)=>a+b,0), extra=Math.max(0,(avail-total)/kids.length);
     let acc=-(total+extra*kids.length)/2;
     kids.forEach((c,i)=>{ const slice=needs[i]+extra; c._mid=acc+slice/2; acc+=slice; });
     v._R=rho+maxCR;
@@ -2975,9 +2975,41 @@ function focusLayout(visible){
   (function place(v,x,y,outDir){
     v.cx=x; v.cy=y;
     (v.children||[]).forEach(c=>{ const a=outDir+c._mid; place(c, x+v._ring*Math.cos(a), y+v._ring*Math.sin(a), a); });
-  })(root, 0, 0, root._hasBack ? Math.PI/2 : -Math.PI/2);   // bloom downward so the top stays free for "back"
+  })(root, 0, 0, root._hasBack ? Math.PI/2 : -Math.PI/2);
+}
+/* place one NEW depth as a single concentric ring outside everything already placed; each parent's
+   children sit in an arc CENTRED on that parent's angle, arc-sized to fit — tiles without overlap. */
+function placeNewRing(nodes, fresh, root){
+  const boxR=v=>Math.hypot(effW(v),effH(v))/2;
+  const avail=root._hasBack ? 1.70*Math.PI : 2*Math.PI;
+  const arc=v=>effW(v)+NODE_W*0.28;
+  const placed=nodes.filter(v=>!fresh.includes(v));
+  const innerMax=Math.max(0,...placed.map(v=>Math.hypot(v.cx-root.cx,v.cy-root.cy)+boxR(v)));
+  const Rnew=Math.max(innerMax+Math.max(...fresh.map(boxR))+NODE_W*0.3, fresh.reduce((s,v)=>s+arc(v),0)/avail);
+  const byP={}; fresh.forEach(v=>{ if(v.parent){ (byP[v.parent.node.id]=byP[v.parent.node.id]||[]).push(v); } });
+  Object.keys(byP).forEach(pid=>{ const P=nodes.find(v=>v.node.id===pid); if(!P) return; const kids=byP[pid];
+    const thP=Math.atan2(P.cy-root.cy, P.cx-root.cx);
+    let a=thP - (kids.reduce((s,c)=>s+arc(c),0)/Rnew)/2;
+    kids.forEach(c=>{ const w=arc(c)/Rnew; const ang=a+w/2; c.cx=root.cx+Rnew*Math.cos(ang); c.cy=root.cy+Rnew*Math.sin(ang); a+=w; });
+  });
+}
+function focusLayout(visible){
+  const nodes=visible.filter(v=>!v._back);
+  const root=nodes.find(v=>v.depth===0)||nodes[0];
   const back=visible.find(v=>v._back);
-  if(back){ back.cx=0; back.cy=-(boxR(root)+NODE_W*0.85+effH(back)/2); }
+  const boxR=v=>Math.hypot(effW(v),effH(v))/2;
+  const fresh=[];
+  nodes.forEach(v=>{ const p=focusPos[v.node.id]; if(p){ v.cx=p.cx; v.cy=p.cy; v._pin=true; } else { v._pin=false; fresh.push(v); } });
+  if(!focusPos[root.node.id]){                             // FRESH neighbourhood -> compact balloon
+    balloonFocus(root); nodes.forEach(v=>{ v._pin=false; });
+  } else if(fresh.length){                                 // added ring(s) -> place each new depth as an outer ring
+    const depths=[...new Set(fresh.map(v=>v.depth))].sort((a,b)=>a-b);
+    depths.forEach(d=>{ placeNewRing(nodes, fresh.filter(v=>v.depth===d), root); });
+  }
+  if(back){ back.cx=0; back.cy=-(boxR(root)+NODE_W*0.85+effH(back)/2); back._pin=false; }
+  resolveOverlaps(back?nodes.concat(back):nodes);                 // separate NEW nodes (pin-aware: existing stay put)
+  nodes.forEach(v=>{ focusPos[v.node.id]={cx:v.cx,cy:v.cy}; });   // remember RESOLVED positions (raw frame) so a later Reach keeps them put
+  if(back) focusPos[back.node.id]={cx:back.cx,cy:back.cy};
 }
 function measure(visible){
   const liveIds=new Set(visible.map(v=>v.node.id));
@@ -3136,9 +3168,11 @@ function resolveOverlaps(vis){
       for(const b of arr){ if(b._si<=a._si)continue;
         const minX=(effW(a)+effW(b))/2+5, minY=(effH(a)+effH(b))/2+4, ddx=a.cx-b.cx, ddy=a.cy-b.cy;
         const ox=minX-Math.abs(ddx), oy=minY-Math.abs(ddy);
-        if(ox>0&&oy>0){ any=true;
-          if(ox<=oy){ const p=ox/2+0.5; if(ddx<0){a.cx-=p;b.cx+=p;}else{a.cx+=p;b.cx-=p;} }
-          else      { const p=oy/2+0.5; if(ddy<0){a.cy-=p;b.cy+=p;}else{a.cy+=p;b.cy-=p;} }
+        if(ox>0&&oy>0){
+          const am=!a._pin, bm=!b._pin; if(!am&&!bm) continue;   // both pinned (existing) → leave them
+          const fa=am&&bm?0.5:(am?1:0), fb=am&&bm?0.5:(bm?1:0); any=true;
+          if(ox<=oy){ const p=ox+0.5; if(ddx<0){a.cx-=p*fa;b.cx+=p*fb;}else{a.cx+=p*fa;b.cx-=p*fb;} }
+          else      { const p=oy+0.5; if(ddy<0){a.cy-=p*fa;b.cy+=p*fb;}else{a.cy+=p*fa;b.cy-=p*fb;} }
         }
       } } });
     if(!any) break;
@@ -3192,6 +3226,7 @@ function computeLayout(visible){
   const ox=PAD-x0, oy=PAD-y0;
   visible.forEach(v=>{ v.cx+=ox; v.cy+=oy; });
   world._bbox={x0:PAD,y0:PAD,x1:(x1-x0)+PAD,y1:(y1-y0)+PAD};
+  world._foff = (mode==='focus') ? {ox,oy} : null;   // record recentre shift so focus can hold existing nodes still
 }
 function position(visible){
   visible.forEach(v=>{ const el=nodeEls[v.node.id]; if(!el)return; el.style.left=(v.cx-NODE_W/2)+'px'; el.style.top=(v.cy-v.h/2)+'px';
@@ -3276,7 +3311,10 @@ function drawLinks(visible){
 function render(){
   curVisible=(mode==='focus')?buildFocus():buildVisible();
   if(!kbdId || !curVisible.some(v=>v.node.id===kbdId)) kbdId=curVisible[0].node.id;
+  const prevOff=world._foff;
   measure(curVisible); computeLayout(curVisible);
+  // focus mode: cancel the recentre shift so already-placed nodes stay exactly put on screen when a ring is added
+  if(mode==='focus' && prevOff && world._foff){ tx-=(world._foff.ox-prevOff.ox)*scale; ty-=(world._foff.oy-prevOff.oy)*scale; }
   position(curVisible); drawLinks(curVisible); applyTransform();
 }
 
@@ -3385,7 +3423,7 @@ function setFocus(id,opts){
   const entering = (mode!=='focus');
   // where is the tapped node on screen right now (for continuity)?
   let anchor=null; if(!entering){ const cur=curVisible.find(v=>v.node.id===id); if(cur) anchor={sx:tx+cur.cx*scale, sy:ty+cur.cy*scale}; }
-  mode='focus'; focusId=id; collapsed.delete(id);
+  mode='focus'; focusId=id; collapsed.delete(id); focusPos={};   // new centre → fresh compact layout
   render();
   const nf=curVisible.find(v=>v.node.id===id && !v._back) || curVisible[0];
   if(entering || !anchor){ const t=focusFrame(); scale=t.scale; tx=t.tx; ty=t.ty; applyTransform(); }
@@ -3715,7 +3753,9 @@ document.getElementById('btnCollapse').addEventListener('click',()=>{
 document.getElementById('btnFit').addEventListener('click',fit);
 document.getElementById('btnMode').addEventListener('click',()=>setMode(mode==='tree'?'force':'tree'));
 document.getElementById('btnFocus').addEventListener('click',()=>setMode(mode==='focus'?'tree':'focus'));
-function setSteps(n){ focusSteps=Math.max(1,Math.min(3,n)); updateModeBtns(); if(mode==='focus'){ render(); const t=focusFrame(); scale=t.scale; tx=t.tx; ty=t.ty; applyTransform(); } }
+function setSteps(n){ const o=focusSteps; focusSteps=Math.max(1,Math.min(3,n)); updateModeBtns();
+  if(mode==='focus'){ render(); if(focusSteps<o){ const t=focusFrame(); scale=t.scale; tx=t.tx; ty=t.ty; applyTransform(); } } }
+  // adding a ring keeps the camera put (existing nodes don't move — pan/zoom out to see the new ring); shrinking re-fits
 document.getElementById('stepsDn').addEventListener('click',()=>setSteps(focusSteps-1));
 document.getElementById('stepsUp').addEventListener('click',()=>setSteps(focusSteps+1));
 document.getElementById('btnSpread').addEventListener('click',()=>{ spread=!spread; updateModeBtns(); render(); fit(); });
